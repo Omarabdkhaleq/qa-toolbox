@@ -28,6 +28,12 @@ function closure(key, seen = new Set()) {
 const sizeOf = (keys) => [...keys].reduce((sum, k) => sum + gz(manifest[k].file), 0);
 
 const entryKey = Object.keys(manifest).find((k) => manifest[k].isEntry);
+if (!entryKey) {
+  console.error(
+    'Bundle check failed:\n- no entry chunk (isEntry) found in dist/.vite/manifest.json',
+  );
+  process.exit(1);
+}
 const entryKeys = closure(entryKey);
 const entrySize = sizeOf(entryKeys);
 console.log(`entry: ${fmt(entrySize)} (budget ${fmt(ENTRY_BUDGET)})`);
@@ -45,7 +51,7 @@ for (const [key, budget] of Object.entries(ROUTE_BUDGETS)) {
 }
 
 for (const pkg of SINGLE_COPY) {
-  let out = '';
+  let out;
   try {
     out = execSync(`npm ls ${pkg} --all --parseable`, {
       encoding: 'utf8',
