@@ -13,8 +13,8 @@ Checked with a throwaway headless-Chromium Playwright script against http://loca
 | Criterion | Result |
 |---|---|
 | Validation errors shown in text and tree mode | PASS |
-| text/tree/table modes work | PASS |
-| Transform works for JSONQuery, JMESPath, JSONPath | PASS |
+| text/tree/table modes work | PASS (DOM presence only) |
+| Transform works for JSONQuery, JMESPath, JSONPath | PASS (JSONPath preview is the standard wrapped result list `[[...]]`, judged by hand; see Notes) |
 | No CSP violations in console | PASS |
 | Container e2e passes | PASS |
 
