@@ -11,7 +11,7 @@ The new **JSON** tool is **one tool** **(user)**: two full editors side by side,
 
 ### Success looks like
 1. One sidebar entry, **JSON** **(user)**, replaces JSON Editor and JSON Compare.
-2. Paste two payloads, tick **Compare**, and see differences highlighted in both editors in text, tree and table views **(user)**.
+2. Paste two payloads, tick **Compare**, and see differences highlighted in both editors in text and tree views **(user)**; table view shows a note and still scrolls to each change **(user, after spike — ADR 0002)**.
 3. JSON containing comments is reported clearly as unsupported, with Repair as the one-click fix **(user)**.
 4. Every action is reachable and discoverable from the keyboard through the command palette, with shortcuts shown for the user's OS **(user)**.
 5. All existing guarantees still hold: no network egress, strict CSP, lossless big numbers, BOM/binary handling, budgets.
@@ -20,7 +20,7 @@ The new **JSON** tool is **one tool** **(user)**: two full editors side by side,
 
 **Goals**
 - Two equal, independent editors with the full JSON Editor toolbar each.
-- In-place, structural compare across text, tree and table views, toggled by a checkbox.
+- In-place, structural compare highlighted in text and tree views (table view: note + scroll-to-change), toggled by a checkbox.
 - Changes drawer, step-through navigation, resizable/collapsible split.
 - Command palette with an OS-aware keyboard reference.
 - Readable in light and dark themes (WCAG AA).
@@ -109,10 +109,11 @@ The new **JSON** tool is **one tool** **(user)**: two full editors side by side,
   - moved (array item): the "moved" color on the item in both editors.
   Every highlighted line/node also gets a left bar so meaning is not carried by color alone; the Changes drawer states the kind in words.
 - **Text view:** highlight the full lines spanned by each changed value (from its key to the end of its value).
-- **Tree / table views:** highlight the changed node/cell; ancestors of a changed node get a subtle marker so collapsed nodes still reveal that something inside changed **(builder's call)**.
+- **Table view (user, after spike):** the library never calls `onClassName` in table mode, so table view shows **no highlights**; while Compare is on, a side in table view shows the note `Differences are highlighted in text and tree views`. The Changes drawer and step-through still scroll the table to the change (`scrollTo` works there).
+- **Tree view:** highlight the changed node; ancestors of a changed node get a subtle marker so collapsed nodes still reveal that something inside changed **(builder's call)**.
 - **Focus / step-through:** ↑/↓ (or Ctrl+Alt+↓/↑) walk the change list in drawer order; the focused change gets the accent outline and a short pulse in both editors (the behaviour shipped for the old Text diff tab: stops at the ends, re-pulses when pressed at an end, counter "Change k of N", no animation under `prefers-reduced-motion`).
 - **What Compare compares:** always each editor's *text*. `<JsonEditorView>` re-serializes tree/table edits to text and emits only text, so tree/table edits trigger a re-compare like typing does.
-- **Highlights at scale:** text-view highlights are CodeMirror decorations (only visible lines render); tree/table highlights use the library's per-node `onClassName`. At most the first **10,000** changes are highlighted; beyond that the middle menu shows "Highlighting the first 10,000 of N changes" and the drawer keeps its 1,000-row cap. The "compare two 5 MB docs < 3 s" budget covers the diff **and** the first paint of highlights.
+- **Highlights at scale:** text-view highlights are CodeMirror decorations (only visible lines render); tree highlights use the library's per-node `onClassName`. At most the first **10,000** changes are highlighted; beyond that the middle menu shows "Highlighting the first 10,000 of N changes" and the drawer keeps its 1,000-row cap. The "compare two 5 MB docs < 3 s" budget covers the diff **and** the first paint of highlights.
 
 ## 6. What happens to existing pieces
 

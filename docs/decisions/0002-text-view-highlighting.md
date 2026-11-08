@@ -1,7 +1,7 @@
 # 0002 — Highlighting differences inside vanilla-jsoneditor views
 
 - Date: 2026-11-09
-- Status: Proposed (table-mode highlighting failed; user decision needed)
+- Status: Accepted (2026-11-09). User decision on the table-mode failure: no highlights in table view; show the note "Differences are highlighted in text and tree views" while Compare is on; scroll-to-change still works there.
 
 ## Context
 The merged JSON tool (spec §9) highlights differences inside the user's own editors instead of in a separate diff view. That needs, without forking or patching vanilla-jsoneditor 3.13.0: (a) line decorations in text mode, (b) colored nodes and scroll-to-path in tree and table modes, (c) global shortcuts that win against the editor's own bindings, all under the strict CSP.
