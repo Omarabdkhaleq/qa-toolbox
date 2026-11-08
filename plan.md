@@ -26,7 +26,7 @@
 - Image: `ghcr.io/<owner>/devbox:{version,latest}`, platforms `linux/amd64,linux/arm64`. `<owner>` = the GitHub account hosting the repo (CI derives it from `github.repository_owner`).
 - **Tests are protected: no one — human contributor, agent, or subagent — may modify, rewrite, weaken, skip, or delete an existing test (unit, component, E2E, perf, container, architecture) without the user's explicit confirmation.** Writing *new* tests as a task's TDD step is allowed. When an existing test fails, fix the implementation; if you believe the test itself is wrong, stop, explain why with actual vs expected output, and wait for the user's yes. This also applies to test config that changes what runs or passes (coverage thresholds, `testIgnore`, budgets, `PERF_MARGIN`).
 - Never commit `.idea/` or editor swap files; never let Prettier rewrite Markdown (`*.md` is in `.prettierignore`).
-- Commits: Conventional Commits; every commit message ends with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (the commit commands below include it).
+- Commits: Conventional Commits. Messages describe only the change — no co-author trailers, no model or tool names.
 
 ## Review Focus
 
@@ -331,7 +331,7 @@ Expected: 1 test passes; lint, typecheck, and build succeed; `dist/index.html` a
 ```bash
 git add -A
 git status --short   # must not list .idea/ or *.swp
-git commit -m "chore: scaffold Vite + React + TypeScript toolchain" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "chore: scaffold Vite + React + TypeScript toolchain"
 ```
 
 ---
@@ -520,7 +520,7 @@ Expected: PASS (7 tests).
 ```bash
 npm run format
 git add src/architecture
-git commit -m "test: enforce architecture import rules" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "test: enforce architecture import rules"
 ```
 
 ---
@@ -759,7 +759,7 @@ Expected: PASS.
 ```bash
 npm run format
 git add src/tools src/app
-git commit -m "feat: add tool contract, registry, and hash router" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat: add tool contract, registry, and hash router"
 ```
 
 ---
@@ -1315,7 +1315,7 @@ Expected: redirects to `#/tools/json-editor`, sidebar shows "Data → JSON Edito
 ```bash
 npm run format
 git add -A
-git commit -m "feat: add app shell with sidebar, theme, and per-tool error boundary" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat: add app shell with sidebar, theme, and per-tool error boundary"
 ```
 
 ---
@@ -1502,7 +1502,7 @@ Expected: FAIL listing `https://example.com/`. Remove the line and re-run. Expec
 ```bash
 npm run format
 git add -A
-git commit -m "test: add Playwright registry smoke and no-egress checks" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "test: add Playwright registry smoke and no-egress checks"
 ```
 
 ---
@@ -1691,7 +1691,7 @@ Expected: 4 tests SKIPPED.
 docker compose down
 npm run format
 git add -A
-git commit -m "feat: add hardened nginx container with CSP and health check" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat: add hardened nginx container with CSP and health check"
 ```
 
 ---
@@ -1906,7 +1906,7 @@ Expected: no output (no errors).
 ```bash
 npm run format
 git add -A
-git commit -m "ci: add verify, e2e, perf, and container jobs with bundle budgets" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "ci: add verify, e2e, perf, and container jobs with bundle budgets"
 ```
 If a GitHub remote exists, push a branch and open a PR. Expected: all four jobs green. (The walking skeleton is complete. Ask the user before creating a remote or pushing.)
 
@@ -2037,7 +2037,7 @@ vanilla-jsoneditor 3 + @cfworker/json-schema 4 + JSONQuery/JMESPath/JSONPath, se
 
 ```bash
 git add docs/decisions/0001-schema-validator.md
-git commit -m "docs: record schema validator spike outcome (ADR 0001)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "docs: record schema validator spike outcome (ADR 0001)"
 ```
 
 ---
@@ -2465,7 +2465,7 @@ Expected: PASS. If `repairJson("{'a': 1, b: [1,2,],}")` differs only in whitespa
 ```bash
 npm run format
 git add -A
-git commit -m "feat(core): add lossless JSON format adapter and text utilities" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(core): add lossless JSON format adapter and text utilities"
 ```
 
 ---
@@ -2765,7 +2765,7 @@ Expected: PASS.
 ```bash
 npm run format
 git add -A
-git commit -m "feat(core): add clipboard, download, file reading, and drop zone helpers" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(core): add clipboard, download, file reading, and drop zone helpers"
 ```
 
 ---
@@ -3136,7 +3136,7 @@ Expected: PASS.
 ```bash
 npm run format
 git add -A
-git commit -m "feat(core): add worker runner and async React hooks" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(core): add worker runner and async React hooks"
 ```
 
 ---
@@ -3486,7 +3486,7 @@ Expected: PASS.
 ```bash
 npm run format
 git add -A
-git commit -m "feat(core): add CodeMirror-based CodeEditor with inline parse errors" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(core): add CodeMirror-based CodeEditor with inline parse errors"
 ```
 
 ---
@@ -3878,7 +3878,7 @@ Expected: PASS. (`JsonEditorView` is covered by Task 14's E2E tests.)
 ```bash
 npm run format
 git add -A
-git commit -m "feat(core): wrap vanilla-jsoneditor with eval-free queries and cfworker schema validation" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(core): wrap vanilla-jsoneditor with eval-free queries and cfworker schema validation"
 ```
 
 ---
@@ -4464,7 +4464,7 @@ Expected: PASS, coverage ≥ 90 %, the bundle check lists `src/tools/json-editor
 
 ```bash
 git add -A
-git commit -m "feat(json-editor): add JSON Editor tool with format, repair, schema, and file I/O" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(json-editor): add JSON Editor tool with format, repair, schema, and file I/O"
 ```
 
 ---
@@ -4909,7 +4909,7 @@ Expected: PASS. If the move test fails because jsondiffpatch shapes the reorder 
 ```bash
 npm run format
 git add -A
-git commit -m "feat(core): add structural diff, JSON paths, merge view, and change list" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(core): add structural diff, JSON paths, merge view, and change list"
 ```
 
 ---
@@ -5495,7 +5495,7 @@ Expected: PASS; the bundle check lists both tool routes within budget; registry 
 
 ```bash
 git add -A
-git commit -m "feat(json-compare): add JSON Compare tool with structural and text diff" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "feat(json-compare): add JSON Compare tool with structural and text diff"
 ```
 
 ---
@@ -5654,7 +5654,7 @@ Expected: 5 tests PASS. If the transform button or dialog selectors differ, find
 ```bash
 npm run format
 git add -A
-git commit -m "test: enforce performance budgets and CSP-safe transform queries" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "test: enforce performance budgets and CSP-safe transform queries"
 ```
 
 ---
@@ -5912,7 +5912,7 @@ Then check intent.md §1's success criteria by hand:
 ```bash
 npm run format
 git add -A
-git commit -m "ci: add release pipeline, Pages demo with meta CSP, and README" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -m "ci: add release pipeline, Pages demo with meta CSP, and README"
 ```
 
 ---
