@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChangeList } from '../../core/diff/ChangeList';
+import { focusLabel } from '../../core/diff/focus';
 import type { Change, DiffSide } from '../../core/diff/structural';
-import { TextDiffView, type TextDiffViewHandle } from '../../core/diff/TextDiffView';
+import {
+  TextDiffView,
+  type DiffFocus,
+  type TextDiffViewHandle,
+} from '../../core/diff/TextDiffView';
 import type { ParseError } from '../../core/formats/types';
 import { readFileAsText } from '../../core/io/file';
 import { useAsyncValue } from '../../core/react/useAsyncValue';
@@ -42,6 +47,7 @@ export default function JsonCompareTool() {
   const [tab, setTab] = useState<Tab>('changes');
   const [jump, setJump] = useState<{ side: DiffSide; line: number } | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [focus, setFocus] = useState<DiffFocus | null>(null);
   const diffRef = useRef<TextDiffViewHandle>(null);
 
   const debouncedLeft = useDebouncedValue(left, 250);
@@ -162,6 +168,11 @@ export default function JsonCompareTool() {
               >
                 ↓
               </button>
+              {focus && (
+                <span className="diff-focus" data-testid="diff-focus" aria-live="polite">
+                  {focusLabel(focus.index, focus.count)}
+                </span>
+              )}
             </>
           )}
           <span className="toolbar__spacer" />
@@ -180,6 +191,7 @@ export default function JsonCompareTool() {
             left={result.leftText}
             right={result.rightText}
             language="json"
+            onFocusChange={setFocus}
           />
         )}
       </div>
