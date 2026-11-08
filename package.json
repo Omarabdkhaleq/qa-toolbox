@@ -17,7 +17,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run coverage && npm run build"
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run coverage && npm run build",
+    "e2e": "playwright test --project=chromium --project=firefox --project=webkit",
+    "e2e:perf": "playwright test --project=perf",
+    "e2e:container": "playwright test --project=container"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
