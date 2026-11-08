@@ -18,7 +18,7 @@ Hardened mode (read-only filesystem):
 docker run --rm -p 8080:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/devbox
 ```
 
-Live demo: `https://<owner>.github.io/devbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
+Live demo: `https://<owner>.github.io/qa-toolbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
 
 ## Privacy guarantees (enforced in CI)
 
