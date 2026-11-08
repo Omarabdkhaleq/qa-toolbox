@@ -46,7 +46,7 @@ The author, plus anyone they share the Docker image (or demo link) with. Single-
 - In-app tabs (deferred to v1.4).
 - JavaScript/Lodash query languages (require `eval`; conflict with CSP — §6.3).
 - "Ignore array order" in Compare (ambiguous for arrays of objects).
-- Command palette (added in v1.1 once there are enough tools).
+- Comments in JSON (`//`, `/* */`) — reported as unsupported with a pointer to Repair; support is on the roadmap backlog.
 
 ## 2. Architecture
 
@@ -277,13 +277,15 @@ SemVer + Conventional Commits.
 ## 9. Roadmap (each milestone gets its own plan)
 | Version | Scope | Notes |
 |---|---|---|
-| **v1** | JSON Editor + JSON Compare | This design / `plan.md` |
-| v1.1 | Text tools: text diff, regex tester, case convert, sort/dedupe lines; **command palette** | Text diff reuses `<TextDiffView>` |
+| **v1** | **JSON** tool (two editors, in-place compare, Changes drawer, resizable split) + floating **command palette** (⌘K / Ctrl+K) | `plan.md`, then `docs/superpowers/specs/2026-11-08-json-tool-design.md` (replaces JSON Editor + JSON Compare) |
+| v1.1 | Text tools: pure **text diff** (line-by-line, any text), regex tester, case convert, sort/dedupe lines | Text diff reuses `<TextDiffView>` and `core/diff/focus.ts`, kept in `core/` for this |
 | v1.2 | QA helpers: JSON Schema → test data, cURL ↔ JSON, API response compare | Builds on Compare + schema validation |
 | v1.3 | Encoders: Base64, URL, JWT decode, hashes, UUID, timestamps | |
 | v1.4 | Persistence: in-app tabs, IndexedDB, File System Access open/save | `{format, text}` documents are the extension point; `localhost` is a secure context so FS Access works from Docker |
 | v1.5 | XML (+ CSV) adapters + **Convert tool** | First milestone with a second format |
 | v1.6 | YAML (+ TOML) adapters | Plug into Convert / Editor / Compare via the adapter layer |
+| Backlog | **JSON with comments**: `//` to end of line; `/* … */` (incl. `/** */`), first `*/` ends it, no nesting; markers inside strings are text; ignored by validation and compare; removed by Format / Minify / Sort keys | Choose own scanner vs Microsoft `jsonc-parser` then; main risk: comment markers inside strings |
+| Backlog | **Keyboard-shortcut conflicts**: Ctrl+Alt+↓/↑ (next/previous change) overrides the editor's add-cursor below/above on Windows/Linux and is taken by Ubuntu desktops for workspace switching | Owner note: "run in terminal" — scope to be confirmed |
 
 ## 10. Risks
 | Risk | Mitigation |
