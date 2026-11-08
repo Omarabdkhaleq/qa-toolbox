@@ -8,6 +8,7 @@ import {
   type JSONEditorPropsOptional,
   type JSONParser,
 } from 'vanilla-jsoneditor';
+import { EditorView } from '@codemirror/view';
 import 'vanilla-jsoneditor/themes/jse-theme-dark.css';
 import { losslessJsonParser } from '../formats/json';
 import { useIsDarkTheme } from '../theme/useIsDarkTheme';
@@ -55,6 +56,10 @@ export function JsonEditorView({
 
   useImperativeHandle(ref, () => ({
     getText: () => {
+      // Text mode debounces its content state, so read the CodeMirror document directly when there is one.
+      const cm = hostRef.current?.querySelector<HTMLElement>('.cm-editor');
+      const view = cm ? EditorView.findFromDOM(cm) : null;
+      if (view) return view.state.doc.toString();
       const editor = editorRef.current;
       return editor ? contentToText(editor.get()) : lastText.current;
     },
