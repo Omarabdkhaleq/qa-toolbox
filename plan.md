@@ -24,6 +24,7 @@
 - Inputs larger than **1,000,000 characters** are processed in a Web Worker (`WORKER_THRESHOLD_CHARS`).
 - Container: `nginxinc/nginx-unprivileged`, port **8080**, non-root, `GET /healthz` → 200, works with `--read-only --tmpfs /tmp`.
 - Image: `ghcr.io/<owner>/devbox:{version,latest}`, platforms `linux/amd64,linux/arm64`. `<owner>` = the GitHub account hosting the repo (CI derives it from `github.repository_owner`).
+- **Tests are protected: no one — human contributor, agent, or subagent — may modify, rewrite, weaken, skip, or delete an existing test (unit, component, E2E, perf, container, architecture) without the user's explicit confirmation.** Writing *new* tests as a task's TDD step is allowed. When an existing test fails, fix the implementation; if you believe the test itself is wrong, stop, explain why with actual vs expected output, and wait for the user's yes. This also applies to test config that changes what runs or passes (coverage thresholds, `testIgnore`, budgets, `PERF_MARGIN`).
 - Never commit `.idea/` or editor swap files; never let Prettier rewrite Markdown (`*.md` is in `.prettierignore`).
 - Commits: Conventional Commits; every commit message ends with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (the commit commands below include it).
 
@@ -2457,7 +2458,7 @@ export function repairJson(text: string): RepairResult {
 - [ ] **Step 5: Run to verify they pass**
 
 Run: `npx vitest run src/core`
-Expected: PASS. If `repairJson("{'a': 1, b: [1,2,],}")` differs only in whitespace, print the actual output and update the expected string to match jsonrepair's whitespace-preserving output; the keys must be quoted and the trailing commas gone.
+Expected: PASS. If `repairJson("{'a': 1, b: [1,2,],}")` differs only in whitespace, print the actual output; the keys must be quoted and the trailing commas gone. **Stop and ask the user before editing the test** (see Global Constraints — test changes need their confirmation); show the actual vs expected output.
 
 - [ ] **Step 6: Commit**
 
@@ -4042,7 +4043,7 @@ exposeWorker(computeStatus);
 - [ ] **Step 4: Run to verify the logic passes**
 
 Run: `npx vitest run src/tools/json-editor`
-Expected: PASS. (If jsonrepair's whitespace differs for the repair case, match its actual output as in Task 9 Step 5.)
+Expected: PASS. (If jsonrepair's whitespace differs for the repair case, handle it as in Task 9 Step 5 — ask the user before changing the test.)
 
 - [ ] **Step 5: Build the UI**
 
@@ -4454,7 +4455,7 @@ export async function exerciseTool(page: Page, toolId: string): Promise<void> {
 - [ ] **Step 8: Run E2E on all browsers**
 
 Run: `npm run e2e`
-Expected: all specs PASS (clipboard test skipped on Firefox/WebKit). If the tree-mode button or `.jse-tree-mode` selector doesn't match the library's markup, inspect with `npx playwright codegen http://localhost:4173/#/tools/json-editor` (after `npm run build && npm run preview`) and change only the selector.
+Expected: all specs PASS (clipboard test skipped on Firefox/WebKit). If the tree-mode button or `.jse-tree-mode` selector doesn't match the library's markup, inspect with `npx playwright codegen http://localhost:4173/#/tools/json-editor` (after `npm run build && npm run preview`), then propose the selector change to the user and wait for their confirmation before editing the spec.
 
 - [ ] **Step 9: Verify, then commit**
 
@@ -5646,7 +5647,7 @@ test('transform queries run without CSP violations', async ({ page }) => {
 ```
 
 Run: `docker compose up --build -d && BASE_URL=http://localhost:8080 npm run e2e:container; docker compose down`
-Expected: 5 tests PASS. If the transform button or dialog selectors differ, find them with `npx playwright codegen http://localhost:8080/#/tools/json-editor` and change only the selectors.
+Expected: 5 tests PASS. If the transform button or dialog selectors differ, find them with `npx playwright codegen http://localhost:8080/#/tools/json-editor` and propose the selector change to the user; edit the spec only after they confirm.
 
 - [ ] **Step 4: Commit**
 

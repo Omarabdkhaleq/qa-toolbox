@@ -246,6 +246,8 @@ Perf specs use generous margins to avoid CI flakiness; they catch large regressi
 
 | Architecture | Vitest | `src/architecture/`: dependency rules in §2 |
 
+**Test protection rule:** no one (human or agent) may modify, rewrite, weaken, skip, or delete an existing test — or test config such as coverage thresholds, ignore lists, and budgets — without the author's explicit confirmation. Failing tests are fixed in the implementation; a test believed to be wrong is raised with the author first.
+
 Coverage gate: **≥ 90% lines** on `src/core/**/*.ts` and `src/tools/*/logic.ts` (`.tsx`, `*.worker.ts`, type-only files excluded; UI is covered by E2E).
 
 ## 8. Delivery
