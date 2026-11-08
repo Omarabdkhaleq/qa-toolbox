@@ -77,3 +77,50 @@ describe('runInWorker', () => {
     expect(neverCreated).not.toHaveBeenCalled();
   });
 });
+
+describe('runInWorker robustness', () => {
+  it('rejects and terminates the worker when postMessage throws', async () => {
+    const terminate = vi.fn();
+    const worker = {
+      postMessage: () => {
+        throw new DOMException('could not be cloned', 'DataCloneError');
+      },
+      terminate,
+    } as unknown as Worker;
+    await expect(
+      runInWorker(
+        () => worker,
+        () => 1,
+      ),
+    ).rejects.toThrow('could not be cloned');
+    expect(terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects with an Error on a malformed response instead of hanging', async () => {
+    const { worker, create } = spawn(() => null);
+    await expect(runInWorker(create, 1)).rejects.toThrow('Malformed worker response');
+    expect(worker.terminated).toBe(true);
+  });
+
+  it('rejects with an Error when the response has no ok field', async () => {
+    const { create } = spawn(() => ({ result: 1 }));
+    await expect(runInWorker(create, 1)).rejects.toThrow('Malformed worker response');
+  });
+
+  it('rejects when the worker message cannot be deserialized', async () => {
+    let terminated = false;
+    const worker = {
+      postMessage: () => {
+        setTimeout(() => worker.onmessageerror?.({} as MessageEvent), 10);
+      },
+      terminate: () => {
+        terminated = true;
+      },
+      onmessageerror: null as ((e: MessageEvent) => void) | null,
+    };
+    await expect(runInWorker(() => worker as unknown as Worker, 1)).rejects.toThrow(
+      'could not be deserialized',
+    );
+    expect(terminated).toBe(true);
+  });
+});
