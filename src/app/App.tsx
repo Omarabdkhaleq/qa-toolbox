@@ -21,7 +21,7 @@ export function App({ tools }: { tools: readonly ToolDefinition[] }) {
     <div className="app">
       <header className="app__header">
         <a className="app__brand" href={firstToolId ? toolHref(firstToolId) : '#/'}>
-          devbox
+          qa-toolbox
         </a>
         <ThemeToggle value={theme} onChange={setTheme} />
       </header>

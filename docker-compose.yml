@@ -1,7 +1,7 @@
 services:
-  devbox:
+  qa-toolbox:
     build: .
-    image: devbox:local
+    image: qa-toolbox:local
     ports:
       - '8080:8080'
     read_only: true

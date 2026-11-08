@@ -18,7 +18,7 @@ export class ToolErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
     // Console only — errors are never sent anywhere.
-    console.error(`[devbox] ${this.props.toolName} crashed`, error, info.componentStack);
+    console.error(`[qa-toolbox] ${this.props.toolName} crashed`, error, info.componentStack);
   }
 
   private reset = () => {
@@ -32,7 +32,7 @@ export class ToolErrorBoundary extends Component<Props, State> {
     return (
       <div className="crash" role="alert">
         <h2>This tool crashed</h2>
-        <p>The rest of devbox still works. Input in this tool was lost.</p>
+        <p>The rest of qa-toolbox still works. Input in this tool was lost.</p>
         <button type="button" onClick={this.reset}>
           Reload tool
         </button>{' '}

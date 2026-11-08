@@ -1,8 +1,8 @@
-# devbox v1 Implementation Plan
+# qa-toolbox v1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship devbox v1 — a private, offline, Dockerized browser toolbox with a JSON Editor and JSON Compare, built on an extensible tool registry.
+**Goal:** Ship qa-toolbox v1 — a private, offline, Dockerized browser toolbox with a JSON Editor and JSON Compare, built on an extensible tool registry.
 
 **Architecture:** A React SPA (hash routing) whose shell renders tools from a compile-time registry; each tool is a lazy-loaded folder with pure `logic.ts`. Shared building blocks live in `src/core/` (format adapters, CodeMirror editor, `vanilla-jsoneditor` wrapper, diff, workers, I/O). The production build is served by an unprivileged nginx container with a strict CSP; all processing happens in the browser.
 
@@ -23,7 +23,7 @@
 - Budgets: entry JS **≤ 150 KB gzip**; each tool route (lazy chunk + its imports not already in the entry) **≤ 600 KB gzip**; open 20 MB JSON (text mode) **< 3 s**; compare two 5 MB docs **< 3 s**; exactly **one** installed copy of `@codemirror/state` and `@codemirror/view`. Budgets change only with the user's agreement.
 - Inputs larger than **1,000,000 characters** are processed in a Web Worker (`WORKER_THRESHOLD_CHARS`).
 - Container: `nginxinc/nginx-unprivileged`, port **8080**, non-root, `GET /healthz` → 200, works with `--read-only --tmpfs /tmp`.
-- Image: `ghcr.io/<owner>/devbox:{version,latest}`, platforms `linux/amd64,linux/arm64`. `<owner>` = the GitHub account hosting the repo (CI derives it from `github.repository_owner`).
+- Image: `ghcr.io/<owner>/qa-toolbox:{version,latest}`, platforms `linux/amd64,linux/arm64`. `<owner>` = the GitHub account hosting the repo (CI derives it from `github.repository_owner`).
 - **Tests are protected: no one — human contributor, agent, or subagent — may modify, rewrite, weaken, skip, or delete an existing test (unit, component, E2E, perf, container, architecture) without the user's explicit confirmation.** Writing *new* tests as a task's TDD step is allowed. When an existing test fails, fix the implementation; if you believe the test itself is wrong, stop, explain why with actual vs expected output, and wait for the user's yes. This also applies to test config that changes what runs or passes (coverage thresholds, `testIgnore`, budgets, `PERF_MARGIN`).
 - Never commit `.idea/` or editor swap files; never let Prettier rewrite Markdown (`*.md` is in `.prettierignore`).
 - Commits: Conventional Commits. Messages describe only the change — no co-author trailers, no model or tool names.
@@ -59,7 +59,7 @@ Decisions made while verifying library APIs and versions (2026-11-08). They don'
 ## File Structure
 
 ```
-devbox/
+qa-toolbox/
 ├─ .github/workflows/ci.yml · release.yml        Task 7, 18
 ├─ .github/dependabot.yml                         Task 7
 ├─ build/csp.ts · csp.test.ts                     Task 18 (CSP source of truth for Pages + drift test)
@@ -124,7 +124,7 @@ Tasks 1–7 are the **walking skeleton**: at the end of Task 7 the app builds, s
 `package.json`:
 ```json
 {
-  "name": "devbox",
+  "name": "qa-toolbox",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -265,7 +265,7 @@ export default tseslint.config(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <title>devbox</title>
+    <title>qa-toolbox</title>
   </head>
   <body>
     <div id="root"></div>
@@ -286,7 +286,7 @@ import { createRoot } from 'react-dom/client';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <h1>devbox</h1>
+    <h1>qa-toolbox</h1>
   </StrictMode>,
 );
 ```
@@ -806,7 +806,7 @@ describe('theme preference', () => {
 
   it('ignores garbage and throwing storage', () => {
     const s = memoryStorage();
-    s.setItem('devbox.theme', 'purple');
+    s.setItem('qa-toolbox.theme', 'purple');
     expect(readThemePreference(s)).toBe('system');
     const throwing = {
       getItem: () => {
@@ -959,7 +959,7 @@ import { useEffect, useState } from 'react';
 export type ThemePreference = 'light' | 'dark' | 'system';
 type Storage = { getItem(key: string): string | null; setItem(key: string, value: string): void };
 
-const KEY = 'devbox.theme';
+const KEY = 'qa-toolbox.theme';
 const PREFERENCES: readonly ThemePreference[] = ['light', 'dark', 'system'];
 
 function defaultStorage(): Storage | undefined {
@@ -1039,7 +1039,7 @@ export class ToolErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
     // Console only — errors are never sent anywhere.
-    console.error(`[devbox] ${this.props.toolName} crashed`, error, info.componentStack);
+    console.error(`[qa-toolbox] ${this.props.toolName} crashed`, error, info.componentStack);
   }
 
   private reset = () => this.setState({ error: null });
@@ -1050,7 +1050,7 @@ export class ToolErrorBoundary extends Component<Props, State> {
     return (
       <div className="crash" role="alert">
         <h2>This tool crashed</h2>
-        <p>The rest of devbox still works. Input in this tool was lost.</p>
+        <p>The rest of qa-toolbox still works. Input in this tool was lost.</p>
         <button type="button" onClick={this.reset}>
           Reload tool
         </button>
@@ -1182,7 +1182,7 @@ export function App({ tools }: { tools: readonly ToolDefinition[] }) {
     <div className="app">
       <header className="app__header">
         <a className="app__brand" href={firstToolId ? toolHref(firstToolId) : '#/'}>
-          devbox
+          qa-toolbox
         </a>
         <ThemeToggle value={theme} onChange={setTheme} />
       </header>
@@ -1658,9 +1658,9 @@ test-results
 `docker-compose.yml`:
 ```yaml
 services:
-  devbox:
+  qa-toolbox:
     build: .
-    image: devbox:local
+    image: qa-toolbox:local
     ports:
       - '8080:8080'
     read_only: true
@@ -1858,12 +1858,12 @@ jobs:
       TRIVY_IMAGE: aquasec/trivy:PIN_ME # Step 4 replaces this with <version>@sha256:<digest>
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t devbox:ci .
+      - run: docker build -t qa-toolbox:ci .
       - name: Scan image (HIGH/CRITICAL fail)
         run: >
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE"
-          image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed devbox:ci
-      - run: docker run -d --name devbox -p 8080:8080 --read-only --tmpfs /tmp devbox:ci
+          image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed qa-toolbox:ci
+      - run: docker run -d --name qa-toolbox -p 8080:8080 --read-only --tmpfs /tmp qa-toolbox:ci
       - run: timeout 30 sh -c 'until curl -fsS http://localhost:8080/healthz; do sleep 1; done'
       - uses: actions/setup-node@v4
         with: { node-version-file: .nvmrc, cache: npm }
@@ -2008,7 +2008,7 @@ npm ci
 - Status: Accepted
 
 ## Context
-devbox serves a CSP without `unsafe-eval` (intent.md §6.3). Ajv compiles schemas with `new Function`, which that CSP blocks.
+qa-toolbox serves a CSP without `unsafe-eval` (intent.md §6.3). Ajv compiles schemas with `new Function`, which that CSP blocks.
 
 ## Spike
 vanilla-jsoneditor 3 + @cfworker/json-schema 4 + JSONQuery/JMESPath/JSONPath, served by the production nginx container.
@@ -2546,14 +2546,14 @@ describe('downloadText', () => {
 
   it('clicks a temporary link to a blob URL and revokes it', () => {
     vi.useFakeTimers();
-    const create = vi.fn().mockReturnValue('blob:devbox/1');
+    const create = vi.fn().mockReturnValue('blob:qa-toolbox/1');
     const revoke = vi.fn();
     Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke });
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(function (this: HTMLAnchorElement) {
         expect(this.download).toBe('data.json');
-        expect(this.href).toBe('blob:devbox/1');
+        expect(this.href).toBe('blob:qa-toolbox/1');
       });
 
     downloadText('data.json', '{"a":1}');
@@ -2562,7 +2562,7 @@ describe('downloadText', () => {
     expect((create.mock.calls[0]![0] as Blob).type).toBe('application/json;charset=utf-8');
     expect(document.querySelector('a[download]')).toBeNull();
     vi.runAllTimers();
-    expect(revoke).toHaveBeenCalledWith('blob:devbox/1');
+    expect(revoke).toHaveBeenCalledWith('blob:qa-toolbox/1');
   });
 });
 ```
@@ -3798,7 +3798,7 @@ function contentToText(content: Content): string {
   return isTextContent(content) ? content.text : toTextContent(content, 2, parser).text;
 }
 
-/** The only place in devbox that touches vanilla-jsoneditor. The rest of the app only sees text. */
+/** The only place in qa-toolbox that touches vanilla-jsoneditor. The rest of the app only sees text. */
 export function JsonEditorView({ value, onChange, mode = 'text', onModeChange, validator }: JsonEditorViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<ReturnType<typeof createJSONEditor> | null>(null);
@@ -5667,7 +5667,7 @@ git commit -m "test: enforce performance budgets and CSP-safe transform queries"
 
 **Interfaces:**
 - Consumes: everything above; `docker/security-headers.conf` (Task 6).
-- Produces: `CSP_DIRECTIVES: readonly string[]`, `metaCsp(): string`, `pagesCspPlugin(): Plugin` (injects a CSP `<meta>` only when `DEVBOX_TARGET=pages`); a tag-triggered release that publishes the multi-arch image, deploys Pages, and creates a GitHub Release.
+- Produces: `CSP_DIRECTIVES: readonly string[]`, `metaCsp(): string`, `pagesCspPlugin(): Plugin` (injects a CSP `<meta>` only when `QA_TOOLBOX_TARGET=pages`); a tag-triggered release that publishes the multi-arch image, deploys Pages, and creates a GitHub Release.
 
 - [ ] **Step 1: Write the failing CSP tests**
 
@@ -5735,10 +5735,10 @@ export function metaCsp(): string {
 /** GitHub Pages can't set headers, so the Pages build carries the CSP as a <meta> tag. */
 export function pagesCspPlugin(): Plugin {
   return {
-    name: 'devbox-pages-csp',
+    name: 'qa-toolbox-pages-csp',
     apply: 'build',
     transformIndexHtml(html) {
-      if (process.env.DEVBOX_TARGET !== 'pages') return html;
+      if (process.env.QA_TOOLBOX_TARGET !== 'pages') return html;
       return html.replace(
         '<head>',
         `<head>\n    <meta http-equiv="Content-Security-Policy" content="${metaCsp()}" />`,
@@ -5750,7 +5750,7 @@ export function pagesCspPlugin(): Plugin {
 
 In `vite.config.ts`, add `import { pagesCspPlugin } from './build/csp';` and change `plugins: [react()]` to `plugins: [react(), pagesCspPlugin()]`.
 
-Run: `npx vitest run build && DEVBOX_TARGET=pages npm run build && grep -c 'Content-Security-Policy' dist/index.html; npm run build && grep -c 'Content-Security-Policy' dist/index.html`
+Run: `npx vitest run build && QA_TOOLBOX_TARGET=pages npm run build && grep -c 'Content-Security-Policy' dist/index.html; npm run build && grep -c 'Content-Security-Policy' dist/index.html`
 Expected: tests PASS; the first grep prints `1`, the second prints `0`.
 
 - [ ] **Step 3: Write the release workflow**
@@ -5792,7 +5792,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/devbox
+          images: ghcr.io/${{ github.repository_owner }}/qa-toolbox
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
@@ -5819,7 +5819,7 @@ jobs:
         with: { node-version-file: .nvmrc, cache: npm }
       - run: npm ci
       - run: npm run build
-        env: { DEVBOX_TARGET: pages }
+        env: { QA_TOOLBOX_TARGET: pages }
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
@@ -5841,7 +5841,7 @@ Then pin every `uses:` to a commit SHA exactly as in Task 7 Step 4, and run acti
 
 `README.md`:
 ````markdown
-# devbox
+# qa-toolbox
 
 A private, offline toolbox for developers and QA engineers. Everything runs in your browser — pasted data never leaves your machine, not even to the container serving the app.
 
@@ -5850,16 +5850,16 @@ A private, offline toolbox for developers and QA engineers. Everything runs in y
 ## Run it
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/<owner>/devbox
+docker run --rm -p 8080:8080 ghcr.io/<owner>/qa-toolbox
 ```
 Open http://localhost:8080. Works on amd64 and arm64 (Apple Silicon).
 
 Hardened mode (read-only filesystem):
 ```bash
-docker run --rm -p 8080:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/devbox
+docker run --rm -p 8080:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/qa-toolbox
 ```
 
-Live demo: `https://<owner>.github.io/devbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
+Live demo: `https://<owner>.github.io/qa-toolbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
 
 ## Privacy guarantees (enforced in CI)
 
@@ -5895,7 +5895,7 @@ The registry smoke test, no-egress test, and CSP test pick the new tool up autom
 
 ## Release
 
-Push a tag `vX.Y.Z`. CI publishes `ghcr.io/<owner>/devbox:{X.Y.Z,latest}` (amd64 + arm64), deploys the Pages demo, and creates a GitHub Release with generated notes.
+Push a tag `vX.Y.Z`. CI publishes `ghcr.io/<owner>/qa-toolbox:{X.Y.Z,latest}` (amd64 + arm64), deploys the Pages demo, and creates a GitHub Release with generated notes.
 ````
 
 - [ ] **Step 5: Final verification**
@@ -5904,7 +5904,7 @@ Run: `npm run verify && npm run e2e && npm run e2e:perf && docker compose up --b
 Expected: every command PASSES.
 
 Then check intent.md §1's success criteria by hand:
-1. `docker run --rm -p 8080:8080 devbox:local`, turn networking off, and use every JSON Editor and JSON Compare feature. Expected: all work.
+1. `docker run --rm -p 8080:8080 qa-toolbox:local`, turn networking off, and use every JSON Editor and JSON Compare feature. Expected: all work.
 2. Read "Adding a tool" and confirm it needs one folder plus one registry line.
 
 - [ ] **Step 6: Commit**

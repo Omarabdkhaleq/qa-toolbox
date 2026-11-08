@@ -39,7 +39,7 @@ export function contentToText(content: Content): string {
   return isTextContent(content) ? content.text : toTextContent(content, 2, parser).text;
 }
 
-/** The only place in devbox that touches vanilla-jsoneditor. The rest of the app only sees text. */
+/** The only place in qa-toolbox that touches vanilla-jsoneditor. The rest of the app only sees text. */
 export function JsonEditorView({
   ref,
   value,

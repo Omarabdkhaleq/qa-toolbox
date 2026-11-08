@@ -1,4 +1,4 @@
-# devbox
+# qa-toolbox
 
 A private, offline toolbox for developers and QA engineers. Everything runs in your browser — pasted data never leaves your machine, not even to the container serving the app.
 
@@ -7,7 +7,7 @@ A private, offline toolbox for developers and QA engineers. Everything runs in y
 ## Run it
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/<owner>/devbox
+docker run --rm -p 8080:8080 ghcr.io/<owner>/qa-toolbox
 ```
 
 Open http://localhost:8080. Works on amd64 and arm64 (Apple Silicon).
@@ -15,7 +15,7 @@ Open http://localhost:8080. Works on amd64 and arm64 (Apple Silicon).
 Hardened mode (read-only filesystem):
 
 ```bash
-docker run --rm -p 8080:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/devbox
+docker run --rm -p 8080:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/qa-toolbox
 ```
 
 Live demo: `https://<owner>.github.io/qa-toolbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
@@ -54,4 +54,4 @@ The registry smoke test, no-egress test, and CSP test pick the new tool up autom
 
 ## Release
 
-Push a tag `vX.Y.Z`. CI publishes `ghcr.io/<owner>/devbox:{X.Y.Z,latest}` (amd64 + arm64), deploys the Pages demo, and creates a GitHub Release with generated notes.
+Push a tag `vX.Y.Z`. CI publishes `ghcr.io/<owner>/qa-toolbox:{X.Y.Z,latest}` (amd64 + arm64), deploys the Pages demo, and creates a GitHub Release with generated notes.

@@ -4,7 +4,7 @@
 - Status: Accepted
 
 ## Context
-devbox serves a CSP without `unsafe-eval` (intent.md §6.3). Ajv compiles schemas with `new Function`, which that CSP blocks.
+qa-toolbox serves a CSP without `unsafe-eval` (intent.md §6.3). Ajv compiles schemas with `new Function`, which that CSP blocks.
 
 ## Spike
 vanilla-jsoneditor 3 + @cfworker/json-schema 4 + JSONQuery/JMESPath/JSONPath, served by the production nginx container.

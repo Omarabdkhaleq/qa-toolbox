@@ -1,4 +1,4 @@
-# devbox — Intent & Design
+# qa-toolbox — Intent & Design
 
 > Status: approved design (brainstorming session, 2026-11-08), updated with plan-time refinements (§11). Implementation plan: [`plan.md`](./plan.md).
 
@@ -19,7 +19,7 @@ A **local, private, offline developer/QA toolbox** that runs in the browser and 
 The author, plus anyone they share the Docker image (or demo link) with. Single-user, no accounts, no auth.
 
 ### Success criteria
-1. `docker run --rm -p 8080:8080 ghcr.io/<owner>/devbox` → open `http://localhost:8080` → every v1 JSON task works with the network disconnected.
+1. `docker run --rm -p 8080:8080 ghcr.io/<owner>/qa-toolbox` → open `http://localhost:8080` → every v1 JSON task works with the network disconnected.
 2. Adding a new tool (e.g. Base64) = **one new folder + one line in the registry**, with tests, and zero changes to existing tools.
 3. CI proves the privacy claim: an automated test fails if any tool makes a non-localhost request.
 4. Performance budgets (§6.2) are enforced in CI.
@@ -70,7 +70,7 @@ The author, plus anyone they share the Docker image (or demo link) with. Single-
 
 ### Repository layout
 ```
-devbox/
+qa-toolbox/
 ├─ src/
 │  ├─ app/                 shell: layout, hash router, sidebar, theme, error boundary
 │  ├─ architecture/        tests that enforce the dependency rules below
@@ -261,7 +261,7 @@ verify: lint · format · typecheck · unit+coverage · build · check-bundle ·
 ```
 
 ### Release (`.github/workflows/release.yml`, on tag `v*.*.*`)
-- `docker buildx` multi-arch (**linux/amd64 + linux/arm64**) → `ghcr.io/<owner>/devbox:{version,latest}`
+- `docker buildx` multi-arch (**linux/amd64 + linux/arm64**) → `ghcr.io/<owner>/qa-toolbox:{version,latest}`
 - Deploy `dist/` to GitHub Pages (live demo)
 - GitHub Release with generated release notes
 

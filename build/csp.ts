@@ -22,10 +22,10 @@ export function metaCsp(): string {
 /** GitHub Pages can't set headers, so the Pages build carries the CSP as a <meta> tag. */
 export function pagesCspPlugin(): Plugin {
   return {
-    name: 'devbox-pages-csp',
+    name: 'qa-toolbox-pages-csp',
     apply: 'build',
     transformIndexHtml(html) {
-      if (process.env.DEVBOX_TARGET !== 'pages') return html;
+      if (process.env.QA_TOOLBOX_TARGET !== 'pages') return html;
       return html.replace(
         '<head>',
         `<head>\n    <meta http-equiv="Content-Security-Policy" content="${metaCsp()}" />`,

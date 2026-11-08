@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 export type ThemePreference = 'light' | 'dark' | 'system';
 type Storage = { getItem(key: string): string | null; setItem(key: string, value: string): void };
 
-const KEY = 'devbox.theme';
+const KEY = 'qa-toolbox.theme';
 const PREFERENCES: readonly ThemePreference[] = ['light', 'dark', 'system'];
 
 function defaultStorage(): Storage | undefined {

@@ -19,7 +19,7 @@ describe('theme preference', () => {
 
   it('ignores garbage and throwing storage', () => {
     const s = memoryStorage();
-    s.setItem('devbox.theme', 'purple');
+    s.setItem('qa-toolbox.theme', 'purple');
     expect(readThemePreference(s)).toBe('system');
     const throwing = {
       getItem: () => {
