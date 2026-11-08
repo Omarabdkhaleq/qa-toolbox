@@ -1,0 +1,10 @@
+.json-editor-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.json-editor-view__target {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}

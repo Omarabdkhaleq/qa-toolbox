@@ -1,0 +1,139 @@
+.text-diff-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.text-diff-view .cm-mergeView {
+  height: 100%;
+}
+.change-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.change-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.change {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.change__kind {
+  display: inline-block;
+  min-width: 72px;
+  font-weight: 600;
+}
+.change--added .change__kind {
+  color: var(--added);
+}
+.change--removed .change__kind {
+  color: var(--removed);
+}
+.change--changed .change__kind {
+  color: var(--changed);
+}
+.change--moved .change__kind {
+  color: var(--moved);
+}
+.change__path {
+  font-family: var(--font-mono);
+}
+.change__detail {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+.change-list__more {
+  padding: 6px 10px;
+  color: var(--fg-muted);
+}
+
+/* Focused change in the text diff: accent outline + extra tint over the normal red/green, in both panes. */
+.text-diff-view {
+  --focus-ring: var(--accent);
+  --focus-tint: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.text-diff-view .cm-line.cm-focusChunk {
+  position: relative;
+  background-image: linear-gradient(var(--focus-tint), var(--focus-tint));
+  box-shadow:
+    inset 3px 0 0 var(--focus-ring),
+    inset -3px 0 0 var(--focus-ring);
+}
+.text-diff-view .cm-line.cm-focusChunk-first {
+  box-shadow:
+    inset 3px 0 0 var(--focus-ring),
+    inset -3px 0 0 var(--focus-ring),
+    inset 0 2px 0 var(--focus-ring);
+}
+.text-diff-view .cm-line.cm-focusChunk-last {
+  box-shadow:
+    inset 3px 0 0 var(--focus-ring),
+    inset -3px 0 0 var(--focus-ring),
+    inset 0 -2px 0 var(--focus-ring);
+}
+.text-diff-view .cm-line.cm-focusChunk-first.cm-focusChunk-last {
+  box-shadow:
+    inset 3px 0 0 var(--focus-ring),
+    inset -3px 0 0 var(--focus-ring),
+    inset 0 2px 0 var(--focus-ring),
+    inset 0 -2px 0 var(--focus-ring);
+}
+/* Side with no lines in this change: just mark where the change sits. */
+.text-diff-view .cm-line.cm-focusChunk-empty,
+.text-diff-view .cm-line.cm-focusChunk-empty.cm-focusChunk-first.cm-focusChunk-last {
+  background-image: none;
+  box-shadow: inset 0 2px 0 var(--focus-ring);
+}
+/* Brief pulse when a change gains focus; two identical animations so re-focusing restarts it. */
+.text-diff-view .cm-line.cm-focusChunk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--focus-ring);
+  opacity: 0;
+  pointer-events: none;
+}
+.text-diff-view .cm-line.cm-focusChunk-pulse0::after {
+  animation: qa-focus-pulse-0 450ms ease-out;
+}
+.text-diff-view .cm-line.cm-focusChunk-pulse1::after {
+  animation: qa-focus-pulse-1 450ms ease-out;
+}
+@keyframes qa-focus-pulse-0 {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes qa-focus-pulse-1 {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-diff-view .cm-line.cm-focusChunk::after {
+    animation: none;
+  }
+}
+.diff-focus {
+  font-size: 12px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}

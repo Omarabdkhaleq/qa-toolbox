@@ -1,0 +1,13 @@
+.code-editor {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.code-editor .cm-editor {
+  height: 100%;
+}
+.code-editor .cm-editor.cm-focused {
+  outline: none;
+}
