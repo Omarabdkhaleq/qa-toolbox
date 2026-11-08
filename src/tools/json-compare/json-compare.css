@@ -1,0 +1,44 @@
+.json-compare-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+.json-compare-tool__inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex: 1;
+  min-height: 160px;
+}
+.json-compare-tool__result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 160px;
+}
+.compare-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  border-radius: var(--radius);
+}
+.compare-pane.is-drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+.compare-pane__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+@media (max-width: 720px) {
+  .json-compare-tool__inputs {
+    grid-template-columns: 1fr;
+  }
+}

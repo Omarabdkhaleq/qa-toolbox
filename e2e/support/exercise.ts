@@ -17,6 +17,16 @@ const EXERCISES: Record<string, Exercise> = {
     await page.getByText('Validating').waitFor();
     await editor.getByRole('button', { name: /^tree$/i }).click();
   },
+  'json-compare': async (page) => {
+    await setCodeMirrorText(page.getByTestId('compare-left'), '{"a":1,"list":[{"id":1}]}');
+    await setCodeMirrorText(
+      page.getByTestId('compare-right'),
+      '{"a":2,"list":[{"id":1},{"id":2}]}',
+    );
+    await page.getByTestId('compare-summary').filter({ hasText: 'change' }).waitFor();
+    await page.getByRole('tab', { name: 'Text diff' }).click();
+    await page.getByTestId('text-diff-view').waitFor();
+  },
 };
 
 export async function exerciseTool(page: Page, toolId: string): Promise<void> {
