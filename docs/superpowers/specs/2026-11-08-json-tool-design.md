@@ -34,7 +34,7 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 - A line-by-line *text* diff of raw text (the old "Text diff" tab). See §6.
 
 **Anti-goals — failure even if it technically works**
-- Comments, whitespace, formatting or key order (when ignored) showing up as differences.
+- Comments, whitespace, formatting or key order showing up as differences.
 - Highlights or text that are hard to read in either theme, or differences conveyed by color alone.
 - Any data leaving the browser, or a CSP relaxation (`unsafe-eval`) to make this work.
 - Big integers rounded or `__proto__` keys lost anywhere in the new flow.
@@ -46,8 +46,7 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 │ [left toolbar]          │ middle  │          [right toolbar] │
 │ Format 2sp▾ Minify Sort │  menu   │ Format 2sp▾ Minify Sort  │
 │ Repair Open Copy Down.  │ ☑Compare│ Repair Open Copy Down.   │
-│ Schema  text|tree|table │ ☑Ignore │ Schema  text|tree|table  │
-│                         │  key ord│                          │
+│ Schema  text|tree|table │         │ Schema  text|tree|table  │
 │   left editor           │ Changes │   right editor           │
 │                         │ ↑ ↓ 2/5 │                          │
 │                         │ ⇄  → ←  │                          │
@@ -62,7 +61,7 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 - **Each editor** keeps everything the JSON Editor has today: Format with indent choice, Minify, Sort keys, Repair, Open file / drag-drop, Copy, Download, Schema panel (per editor **(user, default 9)**), text / tree / table views, transform/query, status bar. The status bar adds a comment count (for example "Valid JSON · 2 comments ignored").
 - **Middle menu**, top to bottom:
   - **Compare** checkbox (off by default — **builder's call**).
-  - **Ignore key order** checkbox, on by default **(user, default 5)**; only enabled while Compare is on.
+  - *(No "Ignore key order" checkbox: Compare always sorts keys A→Z, see §5.)*
   - **Changes (N)** button: opens the drawer; disabled when Compare is off or there are no changes.
   - **↑ / ↓** and **"Change 2 of 5"**: step through changes one by one with the focus outline **(user, default 4)**; hidden when Compare is off.
   - **⇄ Swap**, **Copy left → right**, **Copy right → left** **(user, default 2)**.
@@ -94,13 +93,16 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 
 ## 5. Compare behaviour
 
-- **Structural, not textual (builder's call, follows from the anti-goals):** compare uses the existing lossless structural diff (`core/diff/structural.ts`: array items matched by `id`/`_id`/`uuid`, moves detected, big integers and long decimals exact, the custom bigint and number-literal filters). Highlights are placed on the JSON values each change refers to. Therefore whitespace, formatting, comments and (when ignored) key order never highlight.
+- **Structural, not textual (builder's call, follows from the anti-goals):** compare uses the existing lossless structural diff (`core/diff/structural.ts`: array items matched by `id`/`_id`/`uuid`, moves detected, big integers and long decimals exact, the custom bigint and number-literal filters). Highlights are placed on the JSON values each change refers to. Therefore whitespace, formatting, comments and key order never highlight.
+- **Ticking Compare sorts both editors A→Z (user):** it runs *Sort keys* on both editors (nested objects too, arrays keep their order), using each editor's current indentation, so matching keys line up side by side. Like the Sort keys button this re-indents and removes comments; if either side has comments, the one-time comments notice (§4) appears first. Unticking Compare leaves the text sorted. Key order therefore never matters to compare, and the old "Ignore key order" option is gone.
+  - A side that is empty or invalid when Compare is ticked is left as is; it is sorted the first time its whole content is replaced while Compare is on (builder's call).
+  - While Compare stays on, whole-document replacements are sorted automatically — paste over everything, Open file / drop, Copy left↔right, Swap, Repair, Format. Ordinary typing is **not** re-sorted on every keystroke (it would move the cursor); differences are still computed order-insensitively, so results stay correct (builder's call).
 - **When it runs:** whenever Compare is on and either side changes (debounced as today, ~250 ms), in a Web Worker above 1,000,000 characters combined (existing threshold). Turning Compare off removes all highlights immediately.
-- **States:** if a side is empty or invalid, no highlights; the middle menu shows the same messages as today ("Paste JSON on both sides to compare", "Fix the JSON errors to compare"). Identical data shows "No differences" or "Same data — key order or number notation differs" as today.
-- **Highlight meaning (builder's call, matches existing colors):**
+- **States:** if a side is empty or invalid, no highlights; the middle menu shows the same messages as today ("Paste JSON on both sides to compare", "Fix the JSON errors to compare"). Identical data shows "No differences" (or "Same data — key order or number notation differs" when only number notation such as `1.0` vs `1` differs, as today).
+- **Highlight meaning (user for "changed"; the rest builder's call, matching existing colors):**
   - removed (only in left): red tint on the left value;
   - added (only in right): green tint on the right value;
-  - changed: red tint on the left value, green on the right;
+  - changed: **yellow "warning" tint on both sides** **(user)**. Tint: soft yellow (light theme ≈ `rgba(255,193,7,.22)`, dark ≈ `rgba(255,183,77,.20)`); side bar: the existing amber `--changed` token (light `#b26a00`, dark `#ffb74d`) so the bar keeps ≥ 3:1 contrast against the background. Text on the tint must stay ≥ 4.5:1 in both themes;
   - moved (array item): the "moved" color on the item in both editors.
   Every highlighted line/node also gets a left bar so meaning is not carried by color alone; the Changes drawer states the kind in words.
 - **Text view:** highlight the full lines spanned by each changed value (from its key to the end of its value).
@@ -151,6 +153,7 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 
 **Existing tests — "port, then remove" (user):** the old tools and all their tests stay registered and green until the new JSON tool passes ported versions of every existing assertion. A final task then removes the old tools, their old specs and their budget lines in one change. The user approved, in advance, changing or removing these protected files for that purpose, and only that purpose:
 `e2e/json-editor.spec.ts`, `e2e/json-compare.spec.ts`, the 5 MB compare test in `e2e/perf.spec.ts`, `e2e/container/headers.spec.ts`, `e2e/support/exercise.ts`, `src/tools/registry.test.ts`, `src/app/router.test.ts`, `src/tools/json-editor/logic.test.ts`, `src/tools/json-compare/logic.test.ts`, and the per-tool route budgets in `scripts/check-bundle.mjs`.
-Every assertion keeps its meaning when ported (same behaviour, new route/selectors). The PR lists each ported and each removed test. Any other existing test still needs a per-case yes.
+Every assertion keeps its meaning when ported (same behaviour, new route/selectors). The PR lists each ported and each removed test.
+**One exception the user must confirm:** the JSON Compare test that unticks "Ignore key order" and expects "Same data — key order or number notation differs" tests an option that no longer exists (Compare now always sorts). It cannot be ported with the same meaning; the proposal is to remove it and add a new test that ticking Compare sorts both editors A→Z. Any other existing test still needs a per-case yes.
 
 **Text-view highlighting spike (user):** the spike in §9 comes first. If highlighting inside the library's text view cannot be done cleanly (no forking/patching the library, no CSP change), work **stops and the user is asked**, with what the spike found and the options. Nothing is built on a fallback without that decision.
