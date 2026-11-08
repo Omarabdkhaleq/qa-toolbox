@@ -1,10 +1,11 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { pagesCspPlugin } from './build/csp';
 
 export default defineConfig({
   base: './',
-  plugins: [react()],
+  plugins: [react(), pagesCspPlugin()],
   resolve: {
     // One copy of CodeMirror even though vanilla-jsoneditor also depends on it.
     dedupe: ['@codemirror/state', '@codemirror/view', '@codemirror/language'],
