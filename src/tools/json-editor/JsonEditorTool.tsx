@@ -4,7 +4,7 @@ import { copyToClipboard } from '../../core/io/clipboard';
 import { downloadText } from '../../core/io/download';
 import { readFileAsText } from '../../core/io/file';
 import { useFileDrop } from '../../core/io/useFileDrop';
-import { JsonEditorView } from '../../core/json-view/JsonEditorView';
+import { JsonEditorView, type JsonEditorViewHandle } from '../../core/json-view/JsonEditorView';
 import { createSchemaValidator } from '../../core/json-view/schemaValidator';
 import { useAsyncValue } from '../../core/react/useAsyncValue';
 import { useDebouncedValue } from '../../core/react/useDebouncedValue';
@@ -49,6 +49,9 @@ export default function JsonEditorTool() {
   const [schemaText, setSchemaText] = useState('');
   const [notice, setNotice] = useState<Notice>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<JsonEditorViewHandle>(null);
+  // The editor debounces onChange, so actions read its live content instead of the state.
+  const currentText = () => editorRef.current?.getText() ?? text;
 
   const status = useAsyncValue(useDebouncedValue(text, 150), computeStatusAsync);
   const debouncedSchema = useDebouncedValue(schemaText, 300);
@@ -62,7 +65,7 @@ export default function JsonEditorTool() {
   }, [notice]);
 
   const run = (action: EditAction) => {
-    const result = applyEdit(text, action);
+    const result = applyEdit(currentText(), action);
     if (result.ok) {
       setText(result.text);
       setNotice(null);
@@ -86,7 +89,7 @@ export default function JsonEditorTool() {
 
   const copy = async () => {
     try {
-      await copyToClipboard(text);
+      await copyToClipboard(currentText());
       setNotice({ kind: 'info', text: 'Copied to clipboard' });
     } catch (err) {
       setNotice({ kind: 'error', text: messageOf(err) });
@@ -143,7 +146,7 @@ export default function JsonEditorTool() {
         </button>
         <button
           type="button"
-          onClick={() => downloadText('document.json', text)}
+          onClick={() => downloadText('document.json', currentText())}
           disabled={text === ''}
         >
           Download
@@ -167,7 +170,7 @@ export default function JsonEditorTool() {
         className={`json-editor-tool__workspace${isOver ? ' is-drop-target' : ''}`}
         {...dropProps}
       >
-        <JsonEditorView value={text} onChange={setText} validator={validator} />
+        <JsonEditorView ref={editorRef} value={text} onChange={setText} validator={validator} />
         {schemaOpen && <SchemaPanel value={schemaText} onChange={setSchemaText} result={schema} />}
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import {
   createJSONEditor,
   isTextContent,
@@ -17,7 +17,13 @@ import type { JsonValidator } from './schemaValidator';
 
 export type JsonEditorMode = 'text' | 'tree' | 'table';
 
+export interface JsonEditorViewHandle {
+  /** The live document text, including edits the editor has not reported through onChange yet. */
+  getText: () => string;
+}
+
 export interface JsonEditorViewProps {
+  ref?: Ref<JsonEditorViewHandle>;
   value: string;
   onChange: (text: string) => void;
   mode?: JsonEditorMode;
@@ -28,12 +34,13 @@ export interface JsonEditorViewProps {
 const MODES: Record<JsonEditorMode, Mode> = { text: Mode.text, tree: Mode.tree, table: Mode.table };
 const parser = losslessJsonParser as unknown as JSONParser;
 
-function contentToText(content: Content): string {
+export function contentToText(content: Content): string {
   return isTextContent(content) ? content.text : toTextContent(content, 2, parser).text;
 }
 
 /** The only place in devbox that touches vanilla-jsoneditor. The rest of the app only sees text. */
 export function JsonEditorView({
+  ref,
   value,
   onChange,
   mode = 'text',
@@ -45,6 +52,13 @@ export function JsonEditorView({
   const lastText = useRef(value);
   const callbacks = useRef({ onChange, onModeChange });
   const dark = useIsDarkTheme();
+
+  useImperativeHandle(ref, () => ({
+    getText: () => {
+      const editor = editorRef.current;
+      return editor ? contentToText(editor.get()) : lastText.current;
+    },
+  }));
 
   useEffect(() => {
     callbacks.current = { onChange, onModeChange };
