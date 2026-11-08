@@ -3,7 +3,7 @@ services:
     build: .
     image: qa-toolbox:local
     ports:
-      - '8080:8080'
+      - '47321:8080'
     read_only: true
     tmpfs:
       - /tmp

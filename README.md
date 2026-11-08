@@ -7,15 +7,15 @@ A private, offline toolbox for developers and QA engineers. Everything runs in y
 ## Run it
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/<owner>/qa-toolbox
+docker run --rm -p 47321:8080 ghcr.io/<owner>/qa-toolbox
 ```
 
-Open http://localhost:8080. Works on amd64 and arm64 (Apple Silicon).
+Open http://localhost:47321. Works on amd64 and arm64 (Apple Silicon).
 
 Hardened mode (read-only filesystem):
 
 ```bash
-docker run --rm -p 8080:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/qa-toolbox
+docker run --rm -p 47321:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/qa-toolbox
 ```
 
 Live demo: `https://<owner>.github.io/qa-toolbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
@@ -34,7 +34,7 @@ npm run dev            # http://localhost:5173
 npm run verify         # lint, format, typecheck, unit tests + coverage, build, bundle budgets
 npm run e2e            # Playwright on Chromium, Firefox, WebKit
 npm run e2e:perf       # performance budgets
-docker compose up --build -d && BASE_URL=http://localhost:8080 npm run e2e:container
+docker compose up --build -d && BASE_URL=http://localhost:47321 npm run e2e:container
 ```
 
 ## Architecture
