@@ -1,6 +1,6 @@
 # JSON tool — design
 
-> Status: ready for approval (2026-11-08); design review done. Supersedes intent.md §4.1 (JSON Editor) and §4.2 (JSON Compare); everything else in `intent.md` (privacy, offline, CSP, budgets, testing, delivery) still applies.
+> Status: **approved** (2026-11-08). Supersedes intent.md §4.1 (JSON Editor) and §4.2 (JSON Compare); everything else in `intent.md` (privacy, offline, CSP, budgets, testing, delivery) still applies.
 > Decisions marked **(user)** were made by the product owner; **(builder's call)** were made while writing this and can be revisited.
 
 ## 1. Intent
@@ -57,7 +57,7 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar:** single entry **JSON** **(user)**, route `/#/tools/json`. Old routes `/#/tools/json-editor` and `/#/tools/json-compare` redirect to it **(user, default 1)**.
+- **Sidebar:** single entry **JSON** **(user)**, route `/#/tools/json`. Old routes `/#/tools/json-editor` and `/#/tools/json-compare` are **not** redirected — they show the existing "Tool not found" page **(user: nothing has been released, so no old links exist)**.
 - **Each editor** keeps everything the JSON Editor has today: Format with indent choice, Minify, Sort keys, Repair, Open file / drag-drop, Copy, Download, Schema panel (per editor **(user, default 9)**), text / tree / table views, transform/query, status bar. The status bar adds a comment count (for example "Valid JSON · 2 comments ignored").
 - **Middle menu**, top to bottom:
   - **Compare** checkbox (off by default — **builder's call**).
@@ -146,13 +146,12 @@ It also accepts **comments** in JSON (`// …` and `/* … */`), which are commo
 - **What Compare compares:** always each editor's *text*. `<JsonEditorView>` already re-serializes tree/table edits to text and emits only text, so tree/table edits trigger a re-compare like typing does, and highlight positions are computed against that text.
 - **Copy left→right / right→left and Swap** move the **raw text**, comments included. The target editor keeps its current view. If the target is in tree/table view and the incoming text has comments, the comments-removed notice (§4) applies there.
 - **Highlights at scale:** text-view highlights are CodeMirror decorations (only visible lines are rendered); tree/table highlights use the library's per-node `onClassName`. Highlights are drawn for at most the first **10,000** changes; beyond that, the middle menu shows "Highlighting the first 10,000 of N changes" and the drawer keeps its 1,000-row cap. The "compare two 5 MB docs < 3 s" budget covers the diff **and** the first paint of highlights.
-- **Old routes:** a small alias map in the router (outside the tool registry) redirects `json-editor` and `json-compare` to `json`, so registry-driven tests see only the new tool. Covered by a **new** router test.
 - **Repair** strips comments (that is what `jsonrepair` does). The status comment count ignores `//` and `/*` that appear inside strings.
 
 ## 10. Decisions on tests and on the spike (user, 2026-11-08)
 
 **Existing tests — "port, then remove" (user):** the old tools and all their tests stay registered and green until the new JSON tool passes ported versions of every existing assertion. A final task then removes the old tools, their old specs and their budget lines in one change. The user approved, in advance, changing or removing these protected files for that purpose, and only that purpose:
-`e2e/json-editor.spec.ts`, `e2e/json-compare.spec.ts`, the 5 MB compare test in `e2e/perf.spec.ts`, `e2e/container/headers.spec.ts`, `e2e/support/exercise.ts`, `src/tools/registry.test.ts`, `src/app/router.test.ts`, `src/tools/json-editor/logic.test.ts`, `src/tools/json-compare/logic.test.ts`, and the per-tool route budgets in `scripts/check-bundle.mjs`.
+`e2e/json-editor.spec.ts`, `e2e/json-compare.spec.ts`, the 5 MB compare test in `e2e/perf.spec.ts`, `e2e/container/headers.spec.ts`, `e2e/support/exercise.ts`, `src/tools/registry.test.ts`, `src/tools/json-editor/logic.test.ts`, `src/tools/json-compare/logic.test.ts`, and the per-tool route budgets in `scripts/check-bundle.mjs`.
 Every assertion keeps its meaning when ported (same behaviour, new route/selectors). The PR lists each ported and each removed test.
 **Removed with the "Ignore key order" option (user approved, 2026-11-08):** (1) in `e2e/json-compare.spec.ts`, the step that unticks "Ignore key order" and expects the key-order message (the rest of that test is ported); (2) in `src/tools/json-compare/logic.test.ts`, the case calling `compare(…, false)` with reordered keys and the case "normalizes both sides… sorted when ignoring key order". The number-notation (`1.0` vs `1`) and sorted-normalization assertions are ported. A new test covers "ticking Compare sorts both editors A→Z". The `ignoreKeyOrder` option and its checkbox are deleted from the code; `sortKeysDeep` and the structural diff's key-order insensitivity stay. Any other existing test still needs a per-case yes.
 
