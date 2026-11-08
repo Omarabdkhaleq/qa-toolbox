@@ -89,3 +89,17 @@ describe('sideOfChange', () => {
     expect(sideOfChange({ kind: 'changed', path: [], before: 1, after: 2 })).toBe('right');
   });
 });
+
+describe('compareJson number literals', () => {
+  it('distinguishes a long decimal number from a string with the same digits', () => {
+    const result = compare('{"a":0.12345678901234567890123}', '{"a":"0.12345678901234567890123"}');
+    expect(result.ok && result.changes).toHaveLength(1);
+  });
+
+  it('reports no change for equal long decimals and one change for different ones', () => {
+    const same = compare('[0.12345678901234567890123]', '[0.12345678901234567890123]');
+    expect(same.ok && same.changes).toHaveLength(0);
+    const diff = compare('[0.12345678901234567890123]', '[0.12345678901234567890124]');
+    expect(diff.ok && diff.changes).toMatchObject([{ kind: 'changed', path: [0] }]);
+  });
+});

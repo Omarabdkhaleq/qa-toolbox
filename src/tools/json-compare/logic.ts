@@ -1,3 +1,4 @@
+import { isLosslessNumber } from 'lossless-json';
 import jsonMap from 'json-source-map';
 import { toJsonPointer, type PathSegment } from '../../core/diff/paths';
 import {
@@ -6,6 +7,7 @@ import {
   type Change,
   type DiffSide,
 } from '../../core/diff/structural';
+import { NumberLiteral } from '../../core/diff/numberLiteral';
 import { jsonAdapter, toPlainValue } from '../../core/formats/json';
 import type { ParseError } from '../../core/formats/types';
 
@@ -24,6 +26,27 @@ export type CompareResult =
 
 type Side = { value: unknown } | { issue: SideIssue };
 
+/** Like toPlainValue, but non-safe decimals become NumberLiteral so they never equal a string. */
+function toCompareValue(value: unknown): unknown {
+  if (isLosslessNumber(value)) {
+    const plain = toPlainValue(value);
+    return typeof plain === 'string' ? new NumberLiteral(value.value) : plain;
+  }
+  if (Array.isArray(value)) return value.map(toCompareValue);
+  if (value === null || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    // defineProperty keeps a "__proto__" key as plain data.
+    Object.defineProperty(out, key, {
+      value: toCompareValue(item),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return out;
+}
+
 function parseSide(text: string): Side {
   if (text.trim() === '') return { issue: { kind: 'empty' } };
   const result = jsonAdapter.parse(text);
@@ -41,7 +64,7 @@ export function compareJson({ left, right, options }: CompareInput): CompareResu
     ok: true,
     leftText: jsonAdapter.stringify(l.value, opts),
     rightText: jsonAdapter.stringify(r.value, opts),
-    changes: structuralDiff(toPlainValue(l.value), toPlainValue(r.value)),
+    changes: structuralDiff(toCompareValue(l.value), toCompareValue(r.value)),
   };
 }
 

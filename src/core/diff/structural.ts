@@ -1,4 +1,5 @@
 import { create, type DiffContext, type Filter } from 'jsondiffpatch';
+import { NumberLiteral } from './numberLiteral';
 import type { PathSegment } from './paths';
 
 export type ChangeKind = 'added' | 'removed' | 'changed' | 'moved';
@@ -34,6 +35,19 @@ const bigintFilter: Filter<DiffContext> = function bigintDiffFilter(context) {
 };
 bigintFilter.filterName = 'bigint';
 differ.processor.pipes.diff.before('trivial', bigintFilter);
+
+// Treat number literals as atoms (not objects to recurse into).
+const numberLiteralFilter: Filter<DiffContext> = function numberLiteralDiffFilter(context) {
+  if (context.left instanceof NumberLiteral && context.right instanceof NumberLiteral) {
+    context
+      .setResult(
+        context.left.literal === context.right.literal ? undefined : [context.left, context.right],
+      )
+      .exit();
+  }
+};
+numberLiteralFilter.filterName = 'numberLiteral';
+differ.processor.pipes.diff.before('trivial', numberLiteralFilter);
 
 type DeltaNode = unknown[] | Record<string, unknown>;
 

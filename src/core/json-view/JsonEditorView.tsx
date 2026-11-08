@@ -51,13 +51,18 @@ export function JsonEditorView({
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<ReturnType<typeof createJSONEditor> | null>(null);
   const lastText = useRef(value);
+  const modeRef = useRef(mode);
   const callbacks = useRef({ onChange, onModeChange });
   const dark = useIsDarkTheme();
 
   useImperativeHandle(ref, () => ({
     getText: () => {
       // Text mode debounces its content state, so read the CodeMirror document directly when there is one.
-      const cm = hostRef.current?.querySelector<HTMLElement>('.cm-editor');
+      // Only in text mode: in tree/table modes a '.cm-editor' may belong to a modal.
+      const cm =
+        modeRef.current === 'text'
+          ? hostRef.current?.querySelector<HTMLElement>('.cm-editor')
+          : null;
       const view = cm ? EditorView.findFromDOM(cm) : null;
       if (view) return view.state.doc.toString();
       const editor = editorRef.current;
@@ -85,7 +90,10 @@ export function JsonEditorView({
         lastText.current = text;
         callbacks.current.onChange(text);
       },
-      onChangeMode: (next) => callbacks.current.onModeChange?.(next as JsonEditorMode),
+      onChangeMode: (next) => {
+        modeRef.current = next as JsonEditorMode;
+        callbacks.current.onModeChange?.(next as JsonEditorMode);
+      },
     };
     const editor = createJSONEditor({ target, props });
     editorRef.current = editor;
@@ -104,6 +112,7 @@ export function JsonEditorView({
   }, [value]);
 
   useEffect(() => {
+    modeRef.current = mode;
     editorRef.current?.updateProps({ mode: MODES[mode] });
   }, [mode]);
 

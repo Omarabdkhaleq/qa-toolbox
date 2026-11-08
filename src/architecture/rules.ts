@@ -14,6 +14,9 @@ export interface Violation {
 const IMPORT_RE =
   /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
 const TOOL_DIR_RE = /^src\/tools\/([^/]+)\//;
+const TOOL_TARGET_RE = /^src\/tools\/([^/]+)(\/|$)/;
+/** Top-level modules in src/tools/ that every tool may import (they are not tools). */
+const SHARED_TOOL_MODULES = new Set(['types']);
 const PURE_LOGIC_FORBIDDEN = ['react', 'react-dom', '@codemirror/view'];
 
 function specifiersOf(source: string): string[] {
@@ -41,11 +44,12 @@ export function findViolations(files: SourceFile[]): Violation[] {
       const resolved = resolve(path, specifier);
       const add = (rule: RuleId) => violations.push({ file: path, specifier, rule });
 
-      if (path.startsWith('src/core/') && resolved && /^src\/(tools|app)\//.test(resolved)) {
+      if (path.startsWith('src/core/') && resolved && /^src\/(tools|app)(\/|$)/.test(resolved)) {
         add('core-isolation');
       }
-      const targetTool = resolved ? TOOL_DIR_RE.exec(resolved)?.[1] : undefined;
-      if (ownTool && targetTool && ownTool !== targetTool) add('tool-isolation');
+      const targetTool = resolved ? TOOL_TARGET_RE.exec(resolved)?.[1] : undefined;
+      const targetIsShared = targetTool !== undefined && SHARED_TOOL_MODULES.has(targetTool);
+      if (ownTool && targetTool && !targetIsShared && ownTool !== targetTool) add('tool-isolation');
       if (isPackage(specifier, 'vanilla-jsoneditor') && !path.startsWith('src/core/json-view/')) {
         add('editor-library');
       }

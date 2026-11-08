@@ -1,3 +1,4 @@
+import { NumberLiteral } from './numberLiteral';
 import type { Change, ChangeKind } from './structural';
 
 export const CHANGE_LABELS: Record<ChangeKind, string> = {
@@ -10,11 +11,15 @@ export const CHANGE_LABELS: Record<ChangeKind, string> = {
 // Previews only: a bigint nested inside an object is shown approximately. A changed bigint value itself
 // is formatted exactly by the bigint branch below, and the text diff always shows exact text.
 const bigintSafe = (_key: string, value: unknown) =>
-  typeof value === 'bigint' ? Number(value) : value;
+  typeof value === 'bigint'
+    ? Number(value)
+    : value instanceof NumberLiteral
+      ? Number(value.literal)
+      : value;
 
 export function formatValue(value: unknown, maxLength = 80): string {
   const text =
-    typeof value === 'bigint'
+    typeof value === 'bigint' || value instanceof NumberLiteral
       ? value.toString()
       : typeof value === 'string'
         ? JSON.stringify(value)

@@ -64,3 +64,17 @@ describe('findViolations', () => {
     expect(v.map((x) => x.rule)).toEqual(['pure-logic', 'pure-logic']);
   });
 });
+
+describe('findViolations directory imports', () => {
+  it('flags a tool importing another tool by directory', () => {
+    const v = findViolations([file('src/tools/x/View.tsx', "import y from '../y';")]);
+    expect(v.map((x) => x.rule)).toEqual(['tool-isolation']);
+  });
+
+  it('flags core importing the app or tools directory', () => {
+    const v = findViolations([
+      file('src/core/a.ts', "import a from '../app';\nimport t from '../tools';"),
+    ]);
+    expect(v.map((x) => x.rule)).toEqual(['core-isolation', 'core-isolation']);
+  });
+});

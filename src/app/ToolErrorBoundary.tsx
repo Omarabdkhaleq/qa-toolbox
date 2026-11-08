@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
   toolName: string;
+  onReset?: () => void;
   children: ReactNode;
 }
 interface State {
@@ -20,7 +21,10 @@ export class ToolErrorBoundary extends Component<Props, State> {
     console.error(`[devbox] ${this.props.toolName} crashed`, error, info.componentStack);
   }
 
-  private reset = () => this.setState({ error: null });
+  private reset = () => {
+    this.props.onReset?.();
+    this.setState({ error: null });
+  };
 
   render() {
     const { error } = this.state;
@@ -31,6 +35,9 @@ export class ToolErrorBoundary extends Component<Props, State> {
         <p>The rest of devbox still works. Input in this tool was lost.</p>
         <button type="button" onClick={this.reset}>
           Reload tool
+        </button>{' '}
+        <button type="button" onClick={() => location.reload()}>
+          Reload page
         </button>
         <details>
           <summary>Error details</summary>
