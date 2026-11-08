@@ -37,7 +37,7 @@
 
 ## Plan-time refinements
 
-Decisions made while verifying library APIs and versions (2026-11-08). They don't change the product; fold them into `intent.md` when convenient.
+Decisions made while verifying library APIs and versions (2026-11-08). They don't change the product and are merged into `intent.md` (its §11 and the affected sections).
 
 | # | intent.md | This plan | Why |
 |---|---|---|---|
