@@ -286,3 +286,73 @@ describe('changeTargets', () => {
     expect(t.right.focus).toEqual(['list', 2]);
   });
 });
+
+describe('highlights and targets inside arrays use each side’s own index', () => {
+  const REPRO_LEFT = '{"items":[{"id":1,"n":"a"},{"id":2,"n":"b"},{"id":4,"n":"d"}]}';
+  const REPRO_RIGHT = '{"items":[{"id":3,"n":"c"},{"id":1,"n":"a"},{"id":2,"n":"B"}]}';
+  const changesOf = (left: string, right: string) => {
+    const result = compareJson({ left, right });
+    if (!result.ok) throw new Error('expected valid input');
+    return result.changes;
+  };
+
+  it('insertion before a change: the left highlight sits on the left item', () => {
+    const h = highlightsFor(changesOf(REPRO_LEFT, REPRO_RIGHT));
+    expect(h.left.get('/items/1/n')).toBe('changed');
+    expect(h.left.get('/items/2/n')).toBeUndefined();
+    expect(h.left.get('/items/2')).toBe('removed');
+    expect(h.right.get('/items/2/n')).toBe('changed');
+    expect(h.right.get('/items/0')).toBe('added');
+  });
+
+  it('removal before a change: focus and scroll follow the left item', () => {
+    const changes = changesOf('[{"id":1,"n":"a"},{"id":2,"n":"b"}]', '[{"id":2,"n":"B"}]');
+    const changed = changes.find((c) => c.kind === 'changed')!;
+    const t = changeTargets(changed);
+    expect(t.left).toEqual({ focus: [1, 'n'], scroll: [1, 'n'] });
+    expect(t.right).toEqual({ focus: [0, 'n'], scroll: [0, 'n'] });
+    const h = highlightsFor(changes);
+    expect(h.left.get('/1/n')).toBe('changed');
+    expect(h.left.get('/0')).toBe('removed');
+    expect(h.right.get('/0/n')).toBe('changed');
+  });
+
+  it('a moved and modified item is highlighted at its own index on each side', () => {
+    const changes = changesOf(
+      '[{"id":1,"n":"a"},{"id":2,"n":"b"},{"id":3,"n":"c"}]',
+      '[{"id":3,"n":"C"},{"id":1,"n":"a"},{"id":2,"n":"b"}]',
+    );
+    const h = highlightsFor(changes);
+    expect(h.left.get('/2')).toBe('moved');
+    expect(h.left.get('/2/n')).toBe('changed');
+    expect(h.left.get('/0/n')).toBeUndefined();
+    expect(h.right.get('/0')).toBe('moved');
+    expect(h.right.get('/0/n')).toBe('changed');
+    const changed = changes.find((c) => c.kind === 'changed')!;
+    expect(changeTargets(changed).left.focus).toEqual([2, 'n']);
+  });
+
+  it('a value absent on one side scrolls that side to its own parent', () => {
+    const changes = changesOf(
+      '{"a":[{"id":1,"l":[1]},{"id":2,"l":[1,2]}]}',
+      '{"a":[{"id":0},{"id":1,"l":[1]},{"id":2,"l":[1]}]}',
+    );
+    const removed = changes.find((c) => c.kind === 'removed')!;
+    const t = changeTargets(removed);
+    expect(t.left.focus).toEqual(['a', 1, 'l', 1]);
+    expect(t.right).toEqual({ focus: null, scroll: ['a', 2, 'l'] });
+  });
+
+  it('a move never overwrites an added, removed or changed highlight at the same pointer', () => {
+    const moved: Change = { kind: 'moved', path: ['l', 3], toIndex: 0 };
+    const changed: Change = { kind: 'changed', path: ['l', 0], before: 1, after: 2 };
+    const added: Change = { kind: 'added', path: ['l', 0], after: 1 };
+    const removed: Change = { kind: 'removed', path: ['l', 3], before: 1 };
+    expect(highlightsFor([changed, moved]).right.get('/l/0')).toBe('changed');
+    expect(highlightsFor([moved, changed]).right.get('/l/0')).toBe('changed');
+    expect(highlightsFor([added, moved]).right.get('/l/0')).toBe('added');
+    expect(highlightsFor([moved, added]).right.get('/l/0')).toBe('added');
+    expect(highlightsFor([removed, moved]).left.get('/l/3')).toBe('removed');
+    expect(highlightsFor([moved, removed]).left.get('/l/3')).toBe('removed');
+  });
+});

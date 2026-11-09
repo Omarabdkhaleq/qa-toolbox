@@ -895,3 +895,49 @@ test('the Next change button tooltip contains the shortcut', async ({ page }) =>
   await expect(nextChange(page)).toHaveAttribute('title', 'Next change (Ctrl+Alt+↓)');
   await expect(prevChange(page)).toHaveAttribute('title', 'Previous change (Ctrl+Alt+↑)');
 });
+
+// Final review fixes.
+
+test('inside arrays each editor highlights and focuses its own copy of the changed item', async ({
+  page,
+}) => {
+  await compare(
+    page,
+    '{"items":[{"id":1,"n":"a"},{"id":2,"n":"b"},{"id":4,"n":"d"}]}',
+    '{"items":[{"id":3,"n":"c"},{"id":1,"n":"a"},{"id":2,"n":"B"}]}',
+  );
+  await expect(summary(page)).toHaveText('3 changes: 1 added, 1 removed, 1 changed, 0 moved');
+  const changedLeft = editor(page).locator('.cm-line.jt-hl--changed');
+  const changedRight = editor(page, 'right').locator('.cm-line.jt-hl--changed');
+  await expect(changedLeft).toHaveCount(1);
+  await expect(changedLeft).toHaveText('      "n": "b"');
+  await expect(changedRight).toHaveCount(1);
+  await expect(changedRight).toHaveText('      "n": "B"');
+  await expect(editor(page).locator('.cm-line.jt-hl--removed', { hasText: '"id": 4' })).toHaveCount(
+    1,
+  );
+  await expect(
+    editor(page).locator('.cm-line.jt-hl--removed', { hasText: '"n": "d"' }),
+  ).toHaveCount(1);
+  await expect(
+    editor(page, 'right').locator('.cm-line.jt-hl--added', { hasText: '"id": 3' }),
+  ).toHaveCount(1);
+
+  await nextChange(page).click();
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 2 of 3');
+  await expect(editor(page).locator('.jt-focus')).toHaveText('      "n": "b"');
+  await expect(editor(page, 'right').locator('.jt-focus')).toHaveText('      "n": "B"');
+});
+
+test('a change in a longer right-hand array is still highlighted and focused on the left', async ({
+  page,
+}) => {
+  await compare(page, '[{"id":2,"n":"b"}]', '[{"id":3},{"id":2,"n":"B"}]');
+  await expect(summary(page)).toHaveText('2 changes: 1 added, 0 removed, 1 changed, 0 moved');
+  await expect(editor(page).locator('.cm-line.jt-hl--changed')).toHaveText('    "n": "b"');
+  await expect(editor(page, 'right').locator('.cm-line.jt-hl--changed')).toHaveText('    "n": "B"');
+  await nextChange(page).click();
+  await nextChange(page).click();
+  await expect(editor(page).locator('.jt-focus')).toHaveText('    "n": "b"');
+});

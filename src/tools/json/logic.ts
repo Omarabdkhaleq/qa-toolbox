@@ -3,6 +3,7 @@ import { isLosslessNumber } from 'lossless-json';
 import { NumberLiteral } from '../../core/diff/numberLiteral';
 import { toJsonPointer, type PathSegment } from '../../core/diff/paths';
 import {
+  pathOn,
   structuralDiff,
   summarizeChanges,
   type Change,
@@ -170,23 +171,17 @@ export interface SideTarget {
   scroll: readonly PathSegment[] | null;
 }
 
-/** Where a change sits in each editor. */
+/** Where a change sits in each editor (array indices can differ between the two sides). */
 export function changeTargets(change: Change): Record<DiffSide, SideTarget> {
-  const at = (path: readonly PathSegment[]): SideTarget => ({ focus: path, scroll: path });
-  const near: SideTarget = {
-    focus: null,
-    scroll: change.path.length > 1 ? change.path.slice(0, -1) : null,
+  const target = (side: DiffSide, present: boolean): SideTarget => {
+    const path = pathOn(change, side);
+    if (present) return { focus: path, scroll: path };
+    return { focus: null, scroll: path.length > 1 ? path.slice(0, -1) : null };
   };
-  switch (change.kind) {
-    case 'removed':
-      return { left: at(change.path), right: near };
-    case 'added':
-      return { left: near, right: at(change.path) };
-    case 'changed':
-      return { left: at(change.path), right: at(change.path) };
-    case 'moved':
-      return { left: at(change.path), right: at([...change.path.slice(0, -1), change.toIndex]) };
-  }
+  return {
+    left: target('left', change.kind !== 'added'),
+    right: target('right', change.kind !== 'removed'),
+  };
 }
 
 export function compareAvailability(
@@ -209,6 +204,24 @@ export function compareAvailability(
 
 export const MAX_HIGHLIGHTED_CHANGES = 10_000;
 
+// When two changes land on the same pointer, the stronger kind wins: a move never hides an
+// addition, removal or change, and ancestors never hide anything.
+const HIGHLIGHT_RANK: Record<HighlightKind, number> = {
+  ancestor: 0,
+  moved: 1,
+  added: 2,
+  removed: 2,
+  changed: 2,
+};
+
+function mark(map: Map<string, HighlightKind>, path: readonly PathSegment[], kind: HighlightKind) {
+  const pointer = toJsonPointer(path);
+  const current = map.get(pointer);
+  if (current === undefined || HIGHLIGHT_RANK[kind] >= HIGHLIGHT_RANK[current]) {
+    map.set(pointer, kind);
+  }
+}
+
 export function highlightsFor(changes: readonly Change[]): {
   left: PathHighlights;
   right: PathHighlights;
@@ -220,29 +233,16 @@ export function highlightsFor(changes: readonly Change[]): {
   const ancestorsLeft: (readonly PathSegment[])[] = [];
   const ancestorsRight: (readonly PathSegment[])[] = [];
   for (const change of changes.slice(0, MAX_HIGHLIGHTED_CHANGES)) {
-    switch (change.kind) {
-      case 'removed':
-        left.set(toJsonPointer(change.path), 'removed');
-        ancestorsLeft.push(change.path);
-        break;
-      case 'added':
-        right.set(toJsonPointer(change.path), 'added');
-        ancestorsRight.push(change.path);
-        break;
-      case 'changed':
-        left.set(toJsonPointer(change.path), 'changed');
-        right.set(toJsonPointer(change.path), 'changed');
-        ancestorsLeft.push(change.path);
-        ancestorsRight.push(change.path);
-        break;
-      case 'moved': {
-        const target = [...change.path.slice(0, -1), change.toIndex];
-        left.set(toJsonPointer(change.path), 'moved');
-        right.set(toJsonPointer(target), 'moved');
-        ancestorsLeft.push(change.path);
-        ancestorsRight.push(target);
-        break;
-      }
+    const kind: HighlightKind = change.kind;
+    if (change.kind !== 'added') {
+      const path = pathOn(change, 'left');
+      mark(left, path, kind);
+      ancestorsLeft.push(path);
+    }
+    if (change.kind !== 'removed') {
+      const path = pathOn(change, 'right');
+      mark(right, path, kind);
+      ancestorsRight.push(path);
     }
   }
   addAncestors(left, ancestorsLeft);
