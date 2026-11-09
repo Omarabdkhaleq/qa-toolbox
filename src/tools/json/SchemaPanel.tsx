@@ -5,15 +5,18 @@ export function SchemaPanel({
   value,
   onChange,
   result,
+  label = 'JSON Schema',
   testId = 'schema-editor',
 }: {
   value: string;
   onChange: (text: string) => void;
   result: SchemaValidatorResult | null;
+  /** Accessible name of the panel, so the two sides' panels can be told apart. */
+  label?: string;
   testId?: string;
 }) {
   return (
-    <aside className="schema-panel" aria-label="JSON Schema">
+    <aside className="schema-panel" aria-label={label}>
       <div className="schema-panel__header">
         <strong>JSON Schema</strong>
         {result === null && (

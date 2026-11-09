@@ -1005,3 +1005,10 @@ test('value colours come from the theme tokens in light and dark', async ({ page
     await expect.poll(() => colorOf('.jse-value.jse-null')).toBe(await token('--json-null'));
   }
 });
+
+test('each side’s schema panel has its own accessible name', async ({ page }) => {
+  await action(page, 'Schema').click();
+  await action(page, 'Schema', 'right').click();
+  await expect(page.getByRole('complementary', { name: 'Left JSON Schema' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Right JSON Schema' })).toBeVisible();
+});

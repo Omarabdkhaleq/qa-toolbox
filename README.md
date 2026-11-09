@@ -38,7 +38,7 @@ One tool, at `/#/tools/json`, with two editors side by side (stacked on narrow s
 | Next / previous change (Compare on) | ⌃⌥↓ / ⌃⌥↑ | Ctrl+Alt+↓ / Ctrl+Alt+↑ |
 
 - On Windows/Linux, Ctrl+Alt+↓/↑ **overrides the editor's add-cursor below/above while Compare is on**.
-- On Ubuntu desktops the system takes these keys first; use the Changes buttons or the command palette instead.
+- On Ubuntu desktops the system takes these keys first; use the ↑/↓ buttons or the command palette instead.
 
 ## Privacy guarantees (enforced in CI)
 

@@ -233,6 +233,7 @@ export function EditorPane(props: EditorPaneProps) {
             value={schemaText}
             onChange={props.onSchemaTextChange}
             result={schema}
+            label={`${LABEL[side]} JSON Schema`}
             testId={`schema-editor-${side}`}
           />
         )}
