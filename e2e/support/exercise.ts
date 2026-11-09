@@ -17,6 +17,25 @@ const EXERCISES: Record<string, Exercise> = {
     await page.getByText('Validating').waitFor();
     await editor.getByRole('button', { name: /^tree$/i }).click();
   },
+  json: async (page) => {
+    const editor = page.getByTestId('json-editor-left');
+    await setCodeMirrorText(editor, '{"items":[{"id":1},{"id":2}]}');
+    await page
+      .getByRole('toolbar', { name: 'Left JSON actions' })
+      .getByRole('button', { name: 'Format', exact: true })
+      .click();
+    await page
+      .getByRole('toolbar', { name: 'Left JSON actions' })
+      .getByRole('button', { name: 'Schema', exact: true })
+      .click();
+    await setCodeMirrorText(page.getByTestId('schema-editor-left'), '{"type":"object"}');
+    await page.getByText('Validating').waitFor();
+    await editor.getByRole('button', { name: /^tree$/i }).click();
+    await page
+      .getByRole('group', { name: 'Compare controls' })
+      .getByRole('button', { name: 'Copy left to right', exact: true })
+      .click();
+  },
   'json-compare': async (page) => {
     await setCodeMirrorText(page.getByTestId('compare-left'), '{"a":1,"list":[{"id":1}]}');
     await setCodeMirrorText(
