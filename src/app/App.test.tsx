@@ -1,5 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { detectOs, formatShortcut } from '../core/commands/shortcuts';
 import type { ToolDefinition } from '../tools/types';
 import { App } from './App';
 
@@ -67,5 +69,54 @@ describe('App', () => {
     render(<App tools={fakeTools} />);
     expect(await screen.findByText('This tool crashed')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Tools' })).toBeInTheDocument();
+  });
+});
+
+describe('App command palette', () => {
+  beforeEach(() => {
+    window.location.hash = '#/tools/alpha';
+  });
+  const os = detectOs();
+  const modK = formatShortcut({ mod: true, key: 'k' }, os);
+
+  it('the floating button has a tooltip with the OS shortcut', () => {
+    render(<App tools={fakeTools} />);
+    expect(screen.getByRole('button', { name: 'Commands and shortcuts' })).toHaveAttribute(
+      'title',
+      `Commands and shortcuts (${modK})`,
+    );
+  });
+
+  it('opens on a real command; Open command palette is a read-only keyboard-reference row', async () => {
+    const user = userEvent.setup();
+    render(<App tools={fakeTools} />);
+    await user.click(screen.getByRole('button', { name: 'Commands and shortcuts' }));
+    const palette = screen.getByRole('dialog', { name: 'Command palette' });
+    const options = within(palette).getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    expect(options[0]).not.toHaveAttribute('aria-disabled');
+    const paletteRow = options.find((o) => o.textContent?.includes('Open command palette'))!;
+    expect(paletteRow).toHaveAttribute('aria-disabled', 'true');
+    expect(paletteRow).toHaveTextContent('Keyboard reference');
+    expect(paletteRow).toHaveTextContent(modK);
+    expect(options.indexOf(paletteRow)).toBeGreaterThan(
+      options.findIndex((o) => !o.hasAttribute('aria-disabled')),
+    );
+  });
+
+  it('still opens with its keyboard shortcut', () => {
+    render(<App tools={fakeTools} />);
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      metaKey: os === 'mac',
+      ctrlKey: os !== 'mac',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+    expect(event.defaultPrevented).toBe(true);
   });
 });

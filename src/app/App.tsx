@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CommandsProvider, useRegisterCommands } from '../core/commands/CommandsContext';
-import type { Command } from '../core/commands/types';
+import {
+  CommandsProvider,
+  useRegisterCommands,
+  useShortcut,
+} from '../core/commands/CommandsContext';
+import type { Command, Shortcut } from '../core/commands/types';
 import { CommandButton } from './CommandButton';
 import { CommandPalette } from './CommandPalette';
 import type { ToolDefinition } from '../tools/types';
@@ -9,6 +13,8 @@ import { Sidebar } from './Sidebar';
 import { ThemeToggle } from './ThemeToggle';
 import { resolveTheme, useThemePreference } from './theme';
 import { ToolHost } from './ToolHost';
+
+const PALETTE_SHORTCUT: Shortcut = { mod: true, key: 'k' };
 
 export function App({ tools }: { tools: readonly ToolDefinition[] }) {
   return (
@@ -26,12 +32,12 @@ function Shell({ tools }: { tools: readonly ToolDefinition[] }) {
 
   const appCommands = useMemo<Command[]>(
     () => [
+      // Listed with the keyboard reference; the shortcut itself is handled below.
       {
         id: 'app.palette',
         title: 'Open command palette',
-        group: 'App',
-        shortcut: { mod: true, key: 'k' },
-        run: () => setPaletteOpen(true),
+        group: 'Keyboard reference',
+        shortcut: PALETTE_SHORTCUT,
       },
       {
         id: 'app.toggle-theme',
@@ -54,6 +60,7 @@ function Shell({ tools }: { tools: readonly ToolDefinition[] }) {
     [tools, theme, setTheme],
   );
   useRegisterCommands(appCommands);
+  useShortcut(PALETTE_SHORTCUT, () => setPaletteOpen(true));
 
   useEffect(() => {
     if (route.kind === 'home' && firstToolId) window.location.replace(toolHref(firstToolId));

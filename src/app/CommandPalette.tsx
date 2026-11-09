@@ -4,12 +4,14 @@ import { formatShortcut } from '../core/commands/shortcuts';
 import type { Command } from '../core/commands/types';
 import './command-palette.css';
 
+/** Matching commands; keyboard-reference rows (never runnable) come after the commands. */
 function filterCommands(commands: readonly Command[], query: string): Command[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  return commands.filter((c) => {
+  const matches = commands.filter((c) => {
     const haystack = `${c.title} ${c.group}`.toLowerCase();
     return words.every((w) => haystack.includes(w));
   });
+  return [...matches.filter((c) => c.run), ...matches.filter((c) => !c.run)];
 }
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {

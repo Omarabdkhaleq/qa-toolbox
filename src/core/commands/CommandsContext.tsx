@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { detectOs, matchesShortcut } from './shortcuts';
-import type { Command, Os } from './types';
+import type { Command, Os, Shortcut } from './types';
 
 /**
  * Registrations live in an external store so that re-registering on every render (new `run`
@@ -121,4 +121,26 @@ export function useCommands(): readonly Command[] {
 
 export function useCommandsOs(): Os {
   return useValue().os;
+}
+
+/**
+ * Runs `handler` on a window-level, capture-phase shortcut, like a registered command's, for
+ * actions that are listed as keyboard-reference rows instead of runnable commands.
+ */
+export function useShortcut(shortcut: Shortcut, handler: () => void): void {
+  const { os } = useValue();
+  const latest = useRef({ shortcut, handler });
+  useEffect(() => {
+    latest.current = { shortcut, handler };
+  });
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!matchesShortcut(e, latest.current.shortcut, os)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      latest.current.handler();
+    };
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [os]);
 }

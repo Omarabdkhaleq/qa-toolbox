@@ -4,11 +4,13 @@ import './command-palette.css';
 
 export function CommandButton({ onClick }: { onClick: () => void }) {
   const os = useCommandsOs();
+  const shortcut = formatShortcut({ mod: true, key: 'k' }, os);
   return (
     <button
       type="button"
       className="command-button"
       aria-label="Commands and shortcuts"
+      title={`Commands and shortcuts (${shortcut})`}
       onClick={onClick}
     >
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
@@ -20,7 +22,7 @@ export function CommandButton({ onClick }: { onClick: () => void }) {
           strokeLinejoin="round"
         />
       </svg>
-      <kbd className="key-chip">{formatShortcut({ mod: true, key: 'k' }, os)}</kbd>
+      <kbd className="key-chip">{shortcut}</kbd>
     </button>
   );
 }
