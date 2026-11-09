@@ -21,6 +21,12 @@
   --hl-changed: rgba(255, 193, 7, 0.22);
   --hl-moved: rgba(106, 27, 154, 0.14);
   --hl-ancestor: rgba(92, 99, 112, 0.1);
+  /* JSON value colours in the editors: >= 4.5:1 on --bg-editor and on every --hl-* tint. */
+  --json-key: #1d2129;
+  --json-string: #116329;
+  --json-number: #0550ae;
+  --json-boolean: #953800;
+  --json-null: #6639ba;
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius: 6px;
@@ -43,6 +49,7 @@
   --fg-muted: #9aa2ad;
   --border: #2f343d;
   --accent: #5b8def;
+  --accent-fg: #0d1117;
   --danger: #ef5350;
   --danger-bg: #3b1d1d;
   --ok: #66bb6a;
@@ -56,6 +63,11 @@
   --hl-changed: rgba(255, 183, 77, 0.2);
   --hl-moved: rgba(186, 104, 200, 0.2);
   --hl-ancestor: rgba(154, 162, 173, 0.12);
+  --json-key: #9cdcfe;
+  --json-string: #e6b48c;
+  --json-number: #b5cea8;
+  --json-boolean: #79c0ff;
+  --json-null: #d2a8ff;
 }
 * {
   box-sizing: border-box;

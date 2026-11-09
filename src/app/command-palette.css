@@ -89,8 +89,9 @@
 .palette__item[aria-disabled='true'] {
   cursor: default;
 }
-.palette__item[aria-disabled='true'] .palette__title {
-  opacity: 0.7;
+/* Dimmed with a token colour (AA on --bg); a selected row keeps --accent-fg on --accent. */
+.palette__item[aria-disabled='true']:not([aria-selected='true']) .palette__title {
+  color: var(--fg-muted);
 }
 .palette__text {
   flex: 1;

@@ -972,3 +972,36 @@ test('clicking the editor’s own Undo while Compare is paused keeps Compare on'
   await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
   await expect(compareBox(page)).toBeChecked();
 });
+
+test('value colours come from the theme tokens in light and dark', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.reload();
+  await setCodeMirrorText(editor(page), '{"n":1,"s":"x","b":true,"z":null}');
+  await editor(page)
+    .getByRole('button', { name: /^tree$/i })
+    .click();
+  const colorOf = (selector: string) =>
+    editor(page)
+      .locator(selector)
+      .first()
+      .evaluate((el) => getComputedStyle(el).color);
+  const token = (name: string) =>
+    page.evaluate((n) => {
+      const probe = document.createElement('span');
+      probe.style.color = `var(${n})`;
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    }, name);
+  for (const theme of ['light', 'dark'] as const) {
+    if (theme === 'dark') {
+      await page.getByLabel('Theme').selectOption('dark');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    }
+    await expect.poll(() => colorOf('.jse-value.jse-number')).toBe(await token('--json-number'));
+    await expect.poll(() => colorOf('.jse-value.jse-string')).toBe(await token('--json-string'));
+    await expect.poll(() => colorOf('.jse-value.jse-boolean')).toBe(await token('--json-boolean'));
+    await expect.poll(() => colorOf('.jse-value.jse-null')).toBe(await token('--json-null'));
+  }
+});
