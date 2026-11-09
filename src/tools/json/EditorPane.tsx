@@ -39,6 +39,8 @@ const LABEL: Record<Side, string> = { left: 'Left', right: 'Right' };
 
 export interface EditorPaneProps {
   side: Side;
+  /** Collapsed by the split; stays mounted so the editor keeps its state. */
+  hidden?: boolean;
   ref?: Ref<JsonEditorViewHandle>;
   text: string;
   onTextChange: (text: string) => void;
@@ -83,7 +85,12 @@ export function EditorPane(props: EditorPaneProps) {
       : '';
 
   return (
-    <section className="json-pane" data-testid={`json-${side}`} aria-label={`${LABEL[side]} JSON`}>
+    <section
+      className="json-pane"
+      data-testid={`json-${side}`}
+      aria-label={`${LABEL[side]} JSON`}
+      hidden={props.hidden}
+    >
       <div className="toolbar" role="toolbar" aria-label={`${LABEL[side]} JSON actions`}>
         <button type="button" onClick={() => onRun('format')}>
           Format

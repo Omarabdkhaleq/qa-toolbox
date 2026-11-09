@@ -151,3 +151,57 @@ test('a comment shows the Repair hint and Repair removes it', async ({ page }) =
   await action(page, 'Repair').click();
   await expect(status(page)).toContainText('Valid JSON');
 });
+
+// Resizable, collapsible split.
+
+const handle = (page: Page) => page.getByRole('separator', { name: 'Resize editors' });
+
+test('dragging near the left edge closes the left pane and keeps the menu and right pane', async ({
+  page,
+}) => {
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '50');
+  const tool = await page.locator('.json-tool').boundingBox();
+  const box = await handle(page).boundingBox();
+  if (!tool || !box) throw new Error('missing layout');
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(tool.x + tool.width * 0.05, y, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByTestId('json-left')).toBeHidden();
+  await expect(page.getByTestId('json-right')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Compare controls' })).toBeVisible();
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '0');
+});
+
+test('double-click resets the split to 50', async ({ page }) => {
+  await handle(page).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '55');
+  await handle(page).dblclick();
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '50');
+});
+
+test('keyboard: End closes the right pane, Enter resets, arrows step by 5', async ({ page }) => {
+  await handle(page).focus();
+  await page.keyboard.press('End');
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '100');
+  await expect(page.getByTestId('json-right')).toBeHidden();
+  await expect(page.getByTestId('json-left')).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '50');
+  await expect(page.getByTestId('json-right')).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
+  await expect(handle(page)).toHaveAttribute('aria-valuenow', '45');
+  await page.keyboard.press('Home');
+  await expect(page.getByTestId('json-left')).toBeHidden();
+});
+
+test('narrow screens stack the panes and hide the handle', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(handle(page)).toBeHidden();
+  const left = await page.getByTestId('json-left').boundingBox();
+  const right = await page.getByTestId('json-right').boundingBox();
+  if (!left || !right) throw new Error('missing layout');
+  expect(right.y).toBeGreaterThanOrEqual(left.y + left.height);
+});

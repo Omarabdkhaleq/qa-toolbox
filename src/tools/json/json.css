@@ -1,8 +1,12 @@
 .json-tool {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 8px;
   flex: 1;
   min-height: 0;
+}
+.json-pane[hidden] {
+  display: none;
 }
 .json-pane {
   display: flex;
@@ -29,6 +33,25 @@
   justify-content: center;
   gap: 8px;
   flex: 0 0 auto;
+  position: relative;
+  padding: 0 0 0 14px;
+}
+.json-menu > button {
+  position: relative;
+  z-index: 1;
+}
+.split-handle {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  border-radius: 3px;
+  background: var(--fg-muted);
+  cursor: col-resize;
+  touch-action: none;
+}
+.split-handle:hover,
+.split-handle:focus-visible {
+  background: var(--accent);
 }
 .schema-panel {
   display: flex;
@@ -55,8 +78,15 @@
 }
 @media (max-width: 720px) {
   .json-tool {
+    display: flex;
     flex-direction: column;
     overflow-y: auto;
+  }
+  .split-handle {
+    display: none;
+  }
+  .json-pane[hidden] {
+    display: flex;
   }
   .json-pane {
     flex: none;

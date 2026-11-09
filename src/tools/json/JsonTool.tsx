@@ -39,6 +39,12 @@ export default function JsonTool() {
     left: initialSide(),
     right: initialSide(),
   });
+  const [split, setSplitState] = useState(50);
+  const setSplit = (value: number) => setSplitState(Math.min(100, Math.max(0, value)));
+  const resetSplit = () => setSplitState(50);
+  // Later tasks (Compare) need both panes open.
+  const compareAvailable = split > 0 && split < 100;
+  void compareAvailable;
   const refs = {
     left: useRef<JsonEditorViewHandle>(null),
     right: useRef<JsonEditorViewHandle>(null),
@@ -106,6 +112,7 @@ export default function JsonTool() {
     <EditorPane
       key={side}
       side={side}
+      hidden={(side === 'left' && split === 0) || (side === 'right' && split === 100)}
       ref={refs[side]}
       text={sides[side].text}
       onTextChange={(text) => patch(side, { text })}
@@ -126,9 +133,18 @@ export default function JsonTool() {
   );
 
   return (
-    <div className="json-tool">
+    <div
+      className="json-tool"
+      style={{ gridTemplateColumns: `minmax(0, ${split}fr) auto minmax(0, ${100 - split}fr)` }}
+    >
       {pane('left')}
-      <MiddleMenu onSwap={actions.swap} onCopy={actions.copy} />
+      <MiddleMenu
+        onSwap={actions.swap}
+        onCopy={actions.copy}
+        split={split}
+        onSplit={setSplit}
+        onResetSplit={resetSplit}
+      />
       {pane('right')}
     </div>
   );
