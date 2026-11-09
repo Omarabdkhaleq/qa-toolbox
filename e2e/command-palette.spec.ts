@@ -37,8 +37,8 @@ test('Ctrl+K opens the palette from inside an editor without editing it (Review 
   page,
 }) => {
   await pretend(page, 'Win32');
-  await page.goto('/#/tools/json-editor');
-  const editor = page.getByTestId('json-editor-view');
+  await page.goto('/#/tools/json');
+  const editor = page.getByTestId('json-editor-left');
   await expect(editor.locator('.cm-content')).toBeVisible();
   await setCodeMirrorText(editor, '{"a":1,"b":2}');
   await editor.locator('.cm-content').click();
@@ -51,14 +51,14 @@ test('Ctrl+K opens the palette from inside an editor without editing it (Review 
   expect(await readCodeMirrorText(editor)).toBe('{"a":1,"b":2}');
 });
 
-test('Go to JSON Editor navigates', async ({ page }) => {
+test('Go to JSON navigates', async ({ page }) => {
   await pretend(page, 'Win32');
   await page.goto('/#/tools/json');
   await button(page).click();
-  await palette(page).getByRole('combobox').fill('go to json editor');
+  await palette(page).getByRole('combobox').fill('go to json');
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/#\/tools\/json-editor$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'JSON Editor' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/tools\/json$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'JSON' })).toBeVisible();
 });
 
 test('Toggle theme switches between light and dark', async ({ page }) => {

@@ -9,18 +9,18 @@ test.setTimeout(120_000);
 
 test('opens a 20 MB JSON file in text mode within budget', async ({ page }) => {
   const json = makeLargeJson(20 * MB);
-  await page.goto('/#/tools/json-editor');
-  await expect(page.getByTestId('json-editor-view').locator('.cm-content')).toBeVisible();
+  await page.goto('/#/tools/json');
+  await expect(page.getByTestId('json-editor-left').locator('.cm-content')).toBeVisible();
 
   const started = Date.now();
-  await page.getByTestId('file-input').setInputFiles({
+  await page.getByTestId('file-input-left').setInputFiles({
     name: 'big.json',
     mimeType: 'application/json',
     buffer: Buffer.from(json),
   });
   const openAnyway = page.getByRole('button', { name: /open anyway/i });
   if (await openAnyway.isVisible().catch(() => false)) await openAnyway.click();
-  await expect(page.getByTestId('status-bar')).toContainText('Valid JSON', { timeout: 30_000 });
+  await expect(page.getByTestId('status-left')).toContainText('Valid JSON', { timeout: 30_000 });
   const elapsed = Date.now() - started;
 
   console.log(`20 MB open: ${elapsed} ms (budget ${budget(3000)} ms)`);
@@ -32,8 +32,8 @@ test('compares two 5 MB documents within budget and keeps the UI responsive', as
   const right = left
     .replace('"user500@example.com"', '"changed@example.com"')
     .replace('"user-1500"', '"renamed"');
-  await page.goto('/#/tools/json-compare');
-  await expect(page.getByTestId('compare-left').locator('.cm-content')).toBeVisible();
+  await page.goto('/#/tools/json');
+  await expect(page.getByTestId('json-editor-left').locator('.cm-content')).toBeVisible();
 
   await page.evaluate(() => {
     const w = window as unknown as { __maxFrameGap: number };
@@ -54,6 +54,10 @@ test('compares two 5 MB documents within budget and keeps the UI responsive', as
   await page
     .getByTestId('file-input-right')
     .setInputFiles({ name: 'r.json', mimeType: 'application/json', buffer: Buffer.from(right) });
+  await page
+    .getByRole('group', { name: 'Compare controls' })
+    .getByRole('checkbox', { name: 'Compare' })
+    .check();
   await expect(page.getByTestId('compare-summary')).toHaveText(
     '2 changes: 0 added, 0 removed, 2 changed, 0 moved',
     { timeout: 30_000 },

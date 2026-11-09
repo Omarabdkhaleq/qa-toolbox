@@ -39,7 +39,7 @@ describe('registry', () => {
     expect(validateRegistry(tools)).toEqual([]);
   });
 
-  it('contains the JSON Editor', () => {
-    expect(tools.map((t) => t.id)).toContain('json-editor');
+  it('contains the JSON tool', () => {
+    expect(tools.map((t) => t.id)).toContain('json');
   });
 });

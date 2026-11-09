@@ -34,6 +34,18 @@ export function ChangesDrawer({
     closeRef.current?.focus();
   }, []);
 
+  // Safari does not focus a button on click, so after picking a change focus can fall to
+  // <body>; Escape must still close the drawer then.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.target !== document.body) return;
+      onFocusLostRef.current?.();
+      onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   // Publish the drawer's height for the floating palette button; removed on close/unmount.
   useEffect(() => {
     const el = ref.current;

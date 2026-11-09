@@ -59,8 +59,8 @@ test('transform queries run without CSP violations', async ({ page }) => {
       w.__cspViolations.push(`${e.violatedDirective} ${e.blockedURI}`),
     );
   });
-  await page.goto('/#/tools/json-editor');
-  const editor = page.getByTestId('json-editor-view');
+  await page.goto('/#/tools/json');
+  const editor = page.getByTestId('json-editor-left');
   await editor.locator('.cm-content').click();
   await page.keyboard.insertText('{"items":[{"id":1},{"id":2}]}');
   await editor.getByRole('button', { name: /transform/i }).click();
@@ -88,8 +88,8 @@ test('every query language, including JSONPath filters, runs without CSP violati
       w.__cspViolations.push(`${e.violatedDirective} ${e.blockedURI}`),
     );
   });
-  await page.goto('/#/tools/json-editor');
-  const editor = page.getByTestId('json-editor-view');
+  await page.goto('/#/tools/json');
+  const editor = page.getByTestId('json-editor-left');
   await editor.locator('.cm-content').click();
   await page.keyboard.insertText('{"items":[{"id":1},{"id":2}]}');
   await editor.getByRole('button', { name: /transform/i }).click();

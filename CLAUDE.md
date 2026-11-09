@@ -13,7 +13,7 @@ npm test                  # Vitest once (jsdom)
 npx vitest run src/core/formats/json.test.ts      # single test file
 npx vitest run -t "rejects duplicate keys"        # single test by name
 npm run e2e               # Playwright on chromium, firefox, webkit (builds + serves `vite preview` on :4173 itself)
-npx playwright test e2e/json-compare.spec.ts --project=chromium   # one spec, one browser
+npx playwright test e2e/json.spec.ts --project=chromium   # one spec, one browser
 npm run e2e:perf          # performance budgets (CI uses PERF_MARGIN=2)
 npm run check:bundle      # after `npm run build`: per-route gzip budgets + single-copy CodeMirror check
 
@@ -27,11 +27,11 @@ Node 24 (`.nvmrc`). TypeScript is pinned to ~6.0 because typescript-eslint doesn
 
 ## Architecture
 
-- **Shell + registry.** `src/app/` renders a sidebar and hash routes (`/#/tools/<id>`) from `src/tools/registry.ts`. Each tool is a folder exporting a `ToolDefinition` whose `load()` lazy-imports `<Name>Tool.tsx`; the shell renders the tool's `<h1>`, so tools must not. A new tool = one folder + one line in the registry. `ToolHost` wraps each tool in an error boundary and clears the lazy cache on "Reload tool".
-- **`src/core/`** holds everything shared: `formats/` (FormatAdapter + lossless JSON adapter), `editor/` (`CodeEditor`, CodeMirror 6), `json-view/` (`JsonEditorView` wrapping vanilla-jsoneditor, eval-free query languages, cfworker schema validator), `diff/` (structural diff, JSON paths, merge view, change list, focus/step-through), `worker/` (`runInWorker`/`exposeWorker`), `io/`, `react/`, `theme/`, `ui/`.
+- **Shell + registry.** `src/app/` renders a sidebar and hash routes (`/#/tools/<id>`) from `src/tools/registry.ts`. Each tool is a folder exporting a `ToolDefinition` whose `load()` lazy-imports `<Name>Tool.tsx`; the shell renders the tool's `<h1>`, so tools must not. A new tool = one folder + one line in the registry. The only tool today is `json` (`src/tools/json/`, route `/#/tools/json`), which replaced the old JSON Editor and JSON Compare. `ToolHost` wraps each tool in an error boundary and clears the lazy cache on "Reload tool".
+- **`src/core/`** holds everything shared: `formats/` (FormatAdapter + lossless JSON adapter), `editor/` (`CodeEditor`, CodeMirror 6), `json-view/` (`JsonEditorView` wrapping vanilla-jsoneditor, eval-free query languages, cfworker schema validator), `diff/` (structural diff, JSON paths, merge view, change list, focus/step-through; `TextDiffView` and `focus.ts` are kept for a future Text tool), `commands/` (command palette registry, OS-aware shortcut labels), `worker/` (`runInWorker`/`exposeWorker`), `io/`, `react/`, `theme/`, `ui/`.
 - **Pure logic lives in each tool's `logic.ts`** (no React/DOM); that's where unit tests and coverage focus (≥ 90 % lines on `src/core/**/*.ts` and `src/tools/*/logic.ts`).
 - **Import rules are enforced by tests** in `src/architecture/` (not ESLint): `core/` never imports `tools/` or `app/`; a tool never imports another tool (`src/tools/types.ts` is the shared exemption); only `src/core/json-view/` may import `vanilla-jsoneditor`; `logic.ts` never imports `react`, `react-dom` or `@codemirror/view`. Use relative imports only — no path aliases — or the architecture test can't resolve them.
-- **Numbers are lossless end to end.** Parsing uses `lossless-json` (`LosslessNumber`); `toPlainValue` turns them into `number`/`bigint`/string, and the compare tool wraps unsafe decimals in `NumberLiteral`. `structural.ts` registers custom jsondiffpatch filters for bigint and NumberLiteral because jsondiffpatch's trivial filter ignores them. Duplicate keys with different values are parse errors.
+- **Numbers are lossless end to end.** Parsing uses `lossless-json` (`LosslessNumber`); `toPlainValue` turns them into `number`/`bigint`/string, and the JSON tool's compare wraps unsafe decimals in `NumberLiteral`. `structural.ts` registers custom jsondiffpatch filters for bigint and NumberLiteral because jsondiffpatch's trivial filter ignores them. Duplicate keys with different values are parse errors.
 - **Large inputs (> 1,000,000 chars) go to Web Workers** (`WORKER_THRESHOLD_CHARS`), via `*.worker.ts` files that call `exposeWorker`.
 - **vanilla-jsoneditor debounces `onChange`**, so toolbar actions read live text through `JsonEditorView`'s ref `getText()` (reads the CodeMirror doc in text mode), not React state.
 
@@ -45,7 +45,8 @@ Node 24 (`.nvmrc`). TypeScript is pinned to ~6.0 because typescript-eslint doesn
 ## Testing gotchas
 
 - Vitest runs in jsdom; `src/test/setup.ts` adds RTL `afterEach(cleanup)` and CodeMirror `Range` polyfills. Tests that read files via `import.meta.url` need `// @vitest-environment node` on line 1.
-- vanilla-jsoneditor renders its own "Format JSON…", "Auto repair" and mode buttons, so E2E selectors for our toolbar must be scoped: `page.getByRole('toolbar', { name: 'JSON actions' })` with `exact: true`.
+- vanilla-jsoneditor renders its own "Format JSON…", "Auto repair" and mode buttons, so E2E selectors for our toolbar must be scoped: `page.getByRole('toolbar', { name: 'Left JSON actions' })` (or `Right`) with `exact: true`.
+- JSON tool test ids: panes `json-left`/`json-right`, editors `json-editor-left`/`json-editor-right`, file inputs `file-input-left`/`file-input-right`, statuses `status-left`/`status-right`, `compare-summary`; the Compare checkbox is labelled `Compare` inside the `Compare controls` group; toolbars are `Left JSON actions`/`Right JSON actions`.
 - `e2e/support/codemirror.ts` has `setCodeMirrorText`/`readCodeMirrorText` for typing into and reading editors.
 
 ## Project rules

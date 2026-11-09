@@ -2,7 +2,7 @@
 
 A private, offline toolbox for developers and QA engineers. Everything runs in your browser — pasted data never leaves your machine, not even to the container serving the app.
 
-**v1 tools:** JSON Editor (text / tree / table, format, minify, sort keys, repair, JSONQuery / JMESPath / JSONPath, JSON Schema validation) and JSON Compare (structural changes + side-by-side text diff).
+**v1 tool:** JSON — two editors side by side (text / tree / table, format, minify, sort keys, repair, JSONQuery / JMESPath / JSONPath, JSON Schema validation) with in-place compare.
 
 ## Run it
 
@@ -19,6 +19,26 @@ docker run --rm -p 47321:8080 --read-only --tmpfs /tmp ghcr.io/<owner>/qa-toolbo
 ```
 
 Live demo: `https://<owner>.github.io/qa-toolbox/` (same build; CSP via `<meta>`, so `frame-ancestors` is not enforced there).
+
+## JSON
+
+One tool, at `/#/tools/json`, with two editors side by side (stacked on narrow screens) and a resizable split.
+
+- Each side has text, tree and table views, Format, Minify, Sort keys, Repair, queries (JSONQuery / JMESPath / JSONPath) and JSON Schema validation.
+- Tick **Compare** to highlight differences in place (removed, added, changed, moved) and open the **Changes** drawer to list and jump between them. Ticking Compare sorts keys on both sides; an editor re-sorts when it loses focus, never while you type.
+- While you type, invalid JSON only pauses Compare (it stays ticked and resumes when the JSON is valid again); Compare turns off only if the side is still empty or invalid when you leave that editor.
+- Table view shows no highlights; a note says differences are highlighted in text and tree views. Scrolling to a change still works.
+- Comments (`//`, `/* */`) aren't supported yet. Repair removes them; support is planned.
+
+## Keyboard shortcuts
+
+| Action | macOS | Windows / Linux |
+|---|---|---|
+| Open the command palette | ⌘K | Ctrl+K |
+| Next / previous change (Compare on) | ⌃⌥↓ / ⌃⌥↑ | Ctrl+Alt+↓ / Ctrl+Alt+↑ |
+
+- On Windows/Linux, Ctrl+Alt+↓/↑ **overrides the editor's add-cursor below/above while Compare is on**.
+- On Ubuntu desktops the system takes these keys first; use the Changes buttons or the command palette instead.
 
 ## Privacy guarantees (enforced in CI)
 
