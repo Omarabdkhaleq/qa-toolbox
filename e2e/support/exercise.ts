@@ -23,6 +23,12 @@ const EXERCISES: Record<string, Exercise> = {
       .getByRole('group', { name: 'Compare controls' })
       .getByRole('button', { name: 'Copy left to right', exact: true })
       .click();
+    await editor.getByRole('button', { name: /^text$/i }).click();
+    await setCodeMirrorText(editor, '{"items":[{"id":1},{"id":2}]}');
+    await setCodeMirrorText(page.getByTestId('json-editor-right'), '{"items":[{"id":1},{"id":3}]}');
+    const compare = page.getByRole('group', { name: 'Compare controls' });
+    await compare.getByRole('checkbox', { name: 'Compare' }).check();
+    await page.getByTestId('compare-summary').filter({ hasText: 'change' }).waitFor();
   },
 };
 
