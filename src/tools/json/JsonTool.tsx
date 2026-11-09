@@ -1,11 +1,72 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { focusLabel, stepFocus, type FocusStep } from '../../core/diff/focus';
+import type { Change } from '../../core/diff/structural';
 import { describeParseError } from '../../core/formats/errors';
 import { copyToClipboard } from '../../core/io/clipboard';
 import type { JsonEditorMode, JsonEditorViewHandle } from '../../core/json-view/JsonEditorView';
+import { useAsyncValue, type AsyncState } from '../../core/react/useAsyncValue';
+import { useDebouncedValue } from '../../core/react/useDebouncedValue';
+import { runInWorker, WORKER_THRESHOLD_CHARS } from '../../core/worker/runInWorker';
 import { EditorPane, type Notice, type Side } from './EditorPane';
 import './json.css';
-import { applyEdit, type EditAction, type IndentChoice } from './logic';
+import {
+  applyEdit,
+  changeTargets,
+  compareAvailability,
+  compareJson,
+  computeStatus,
+  highlightsFor,
+  MAX_HIGHLIGHTED_CHANGES,
+  summaryText,
+  type CompareInput,
+  type CompareResult,
+  type EditAction,
+  type EditorStatus,
+  type EditResult,
+  type IndentChoice,
+} from './logic';
 import { MiddleMenu } from './MiddleMenu';
+
+const createStatusWorker = () =>
+  new Worker(new URL('./status.worker.ts', import.meta.url), { type: 'module' });
+const createCompareWorker = () =>
+  new Worker(new URL('./compare.worker.ts', import.meta.url), { type: 'module' });
+const createEditWorker = () =>
+  new Worker(new URL('./edit.worker.ts', import.meta.url), { type: 'module' });
+
+async function computeStatusAsync(text: string, signal: AbortSignal): Promise<EditorStatus> {
+  return text.length > WORKER_THRESHOLD_CHARS
+    ? runInWorker<string, EditorStatus>(createStatusWorker, text, { signal })
+    : computeStatus(text);
+}
+
+/** `null` input = Compare is off. */
+async function compareAsync(
+  input: CompareInput | null,
+  signal: AbortSignal,
+): Promise<CompareResult | null> {
+  if (!input) return null;
+  return input.left.length + input.right.length > WORKER_THRESHOLD_CHARS
+    ? runInWorker<CompareInput, CompareResult>(createCompareWorker, input, { signal })
+    : compareJson(input);
+}
+
+async function sortKeysAsync(text: string, indent: IndentChoice): Promise<EditResult> {
+  const action: EditAction = { kind: 'sortKeys', indent };
+  return text.length > WORKER_THRESHOLD_CHARS
+    ? runInWorker<{ text: string; action: EditAction }, EditResult>(createEditWorker, {
+        text,
+        action,
+      })
+    : applyEdit(text, action);
+}
+
+const SIDES: readonly Side[] = ['left', 'right'];
+const NO_CHANGES: readonly Change[] = [];
+const SPLIT_CLOSED_REASON = 'Open both editors to compare';
+const statusOf = (s: AsyncState<EditorStatus>): EditorStatus =>
+  s.status === 'done' ? s.value : { state: 'empty' };
+const normalizeNewlines = (text: string) => text.replace(/\r\n?/g, '\n').trim();
 
 interface SideState {
   text: string;
@@ -42,24 +103,148 @@ export default function JsonTool() {
   const [split, setSplitState] = useState(50);
   const setSplit = (value: number) => setSplitState(Math.min(100, Math.max(0, value)));
   const resetSplit = () => setSplitState(50);
-  // Later tasks (Compare) need both panes open.
   const compareAvailable = split > 0 && split < 100;
-  void compareAvailable;
   const refs = {
     left: useRef<JsonEditorViewHandle>(null),
     right: useRef<JsonEditorViewHandle>(null),
   };
+
+  // ---- Compare state ----
+  const [compareOn, setCompareOn] = useState(false);
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+  // True for two frames when the focused change is re-focused, so its outline pulses again.
+  const [repulsing, setRepulsing] = useState(false);
+  // Edited by the user since the last sort; such a side re-sorts once when its editor loses focus.
+  const dirty = useRef<Record<Side, boolean>>({ left: false, right: false });
+  // Text just pasted into each editor; a paste that becomes the whole document is sorted.
+  const pasted = useRef<Record<Side, string | null>>({ left: null, right: null });
+
+  const statuses = {
+    left: useAsyncValue(useDebouncedValue(sides.left.text, 150), computeStatusAsync),
+    right: useAsyncValue(useDebouncedValue(sides.right.text, 150), computeStatusAsync),
+  };
+  const availability = compareAvailability(statusOf(statuses.left), statusOf(statuses.right));
+  // A side became empty or invalid: Compare turns off (the user re-ticks it after fixing).
+  if (compareOn && !availability.ok) {
+    setCompareOn(false);
+    setFocusIndex(null);
+  }
+  const compareReason = !availability.ok
+    ? availability.reason
+    : compareAvailable
+      ? undefined
+      : SPLIT_CLOSED_REASON;
+  // With a side closed by the split, Compare keeps its value but does nothing until it reopens.
+  const compareActive = compareOn && compareAvailable;
+
+  const debouncedLeft = useDebouncedValue(sides.left.text, 250);
+  const debouncedRight = useDebouncedValue(sides.right.text, 250);
+  const compareInput = useMemo<CompareInput | null>(
+    () => (compareActive ? { left: debouncedLeft, right: debouncedRight } : null),
+    [compareActive, debouncedLeft, debouncedRight],
+  );
+  const compareState = useAsyncValue(compareInput, compareAsync);
+  const compareResult = compareActive && compareState.status === 'done' ? compareState.value : null;
+  const changes = compareResult?.ok ? compareResult.changes : NO_CHANGES;
+  const highlights = useMemo(
+    () => (compareResult?.ok ? highlightsFor(compareResult.changes) : null),
+    [compareResult],
+  );
+  const focus = focusIndex !== null && focusIndex < changes.length ? focusIndex : null;
+  const focusedChange = focus !== null ? changes[focus] : undefined;
+  const targets = focusedChange && !repulsing ? changeTargets(focusedChange) : null;
 
   const patch = (side: Side, change: Partial<SideState>) =>
     setSides((s) => ({ ...s, [side]: { ...s[side], ...change } }));
   // The editor debounces onChange, so actions read its live content instead of the state.
   const liveText = (side: Side) => refs[side].current?.getText() ?? sides[side].text;
 
+  /** While Compare is on, a whole-document replacement is sorted (left as is if it is not valid JSON). */
+  const sortedIfComparing = (side: Side, text: string) => {
+    if (!compareOn) return text;
+    const result = applyEdit(text, { kind: 'sortKeys', indent: sides[side].indent });
+    return result.ok ? result.text : text;
+  };
+  const replace = (side: Side, text: string) => {
+    dirty.current[side] = false;
+    patch(side, { text: sortedIfComparing(side, text), notice: null });
+  };
+
+  /** Sorts an editor's live text (in a worker when large); leaves it alone if it changed meanwhile. */
+  const sortLive = async (side: Side): Promise<boolean> => {
+    const source = liveText(side);
+    let result: EditResult;
+    try {
+      result = await sortKeysAsync(source, sides[side].indent);
+    } catch {
+      return false;
+    }
+    if (!result.ok) return false;
+    // Edited while sorting (only possible for large, worker-sorted text): keep the edit; blur sorts later.
+    if (liveText(side) !== source) return true;
+    dirty.current[side] = false;
+    if (result.text !== source) patch(side, { text: result.text });
+    return true;
+  };
+
+  const onEdit = (side: Side, text: string) => {
+    const paste = pasted.current[side];
+    pasted.current[side] = null;
+    if (compareOn && paste !== null && normalizeNewlines(paste) === normalizeNewlines(text)) {
+      replace(side, text);
+      return;
+    }
+    dirty.current[side] = true;
+    patch(side, { text });
+  };
+
+  const onEditorBlur = (side: Side) => {
+    if (compareOn && dirty.current[side]) void sortLive(side);
+  };
+
+  const toggleCompare = () => {
+    setFocusIndex(null);
+    if (compareOn) {
+      setCompareOn(false);
+      return;
+    }
+    if (compareReason) return;
+    setCompareOn(true);
+    void Promise.all(SIDES.map(sortLive)).then((sorted) => {
+      // The live text was not valid after all (its status had not caught up yet).
+      if (sorted.includes(false)) setCompareOn(false);
+    });
+  };
+
+  const focusChange = (index: number) => {
+    const change = changes[index];
+    if (!change) return;
+    if (index === focus) {
+      setRepulsing(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setRepulsing(false)));
+    }
+    setFocusIndex(index);
+    const target = changeTargets(change);
+    for (const side of SIDES) {
+      const path = target[side].scroll;
+      // Scrolling is best effort; a path the editor cannot reach leaves it where it is.
+      if (path) void refs[side].current?.scrollToPath(path).catch(() => undefined);
+    }
+  };
+
+  const stepChange = (step: FocusStep) => {
+    if (!compareActive) return;
+    const next = stepFocus(focus, changes.length, step);
+    if (next !== null) focusChange(next);
+  };
+
   const run = (side: Side, kind: EditAction['kind']) => {
     const action: EditAction =
       kind === 'format' || kind === 'sortKeys' ? { kind, indent: sides[side].indent } : { kind };
     const result = applyEdit(liveText(side), action);
-    if (result.ok) patch(side, { text: result.text, notice: null });
+    // Minify keeps key order, so it needs no re-sort (and sorting would undo it).
+    if (result.ok && kind === 'minify') patch(side, { text: result.text, notice: null });
+    else if (result.ok) replace(side, result.text);
     else
       patch(side, {
         notice: {
@@ -69,22 +254,36 @@ export default function JsonTool() {
       });
   };
 
-  // Per-side actions; later tasks (compare, command palette) call these.
+  // Per-side actions and compare actions; later tasks (drawer, command palette) call these.
   const actions = {
     format: (side: Side) => run(side, 'format'),
     minify: (side: Side) => run(side, 'minify'),
     sortKeys: (side: Side) => run(side, 'sortKeys'),
     repair: (side: Side) => run(side, 'repair'),
     swap: () => {
-      const left = liveText('left');
-      const right = liveText('right');
+      const left = sortedIfComparing('left', liveText('right'));
+      const right = sortedIfComparing('right', liveText('left'));
+      dirty.current = { left: false, right: false };
       setSides((s) => ({
-        left: { ...s.left, text: right },
-        right: { ...s.right, text: left },
+        left: { ...s.left, text: left },
+        right: { ...s.right, text: right },
       }));
     },
-    copy: (from: Side, to: Side) => patch(to, { text: liveText(from) }),
+    copy: (from: Side, to: Side) => {
+      dirty.current[to] = false;
+      patch(to, { text: sortedIfComparing(to, liveText(from)) });
+    },
+    toggleCompare,
+    stepChange,
+    focusChange,
   };
+  const truncationNote = highlights?.truncated
+    ? `Highlighting the first ${MAX_HIGHLIGHTED_CHANGES.toLocaleString('en-US')} of ${highlights.total.toLocaleString('en-US')} changes`
+    : null;
+  const summary =
+    compareState.status === 'error'
+      ? `Compare failed: ${compareState.error.message}`
+      : summaryText(compareResult);
 
   const copyToClipboardOf = async (side: Side) => {
     try {
@@ -115,7 +314,9 @@ export default function JsonTool() {
       hidden={(side === 'left' && split === 0) || (side === 'right' && split === 100)}
       ref={refs[side]}
       text={sides[side].text}
-      onTextChange={(text) => patch(side, { text })}
+      onTextChange={(text) => onEdit(side, text)}
+      onReplaceText={(text) => replace(side, text)}
+      status={statuses[side]}
       indent={sides[side].indent}
       onIndentChange={(indent) => patch(side, { indent })}
       mode={sides[side].mode}
@@ -129,6 +330,13 @@ export default function JsonTool() {
       onRun={(kind) => run(side, kind)}
       onCopy={() => void copyToClipboardOf(side)}
       getText={() => liveText(side)}
+      highlights={highlights?.[side]}
+      focusPath={targets?.[side].focus ?? null}
+      showTableNote={compareActive}
+      onEditorBlur={() => onEditorBlur(side)}
+      onEditorPaste={(text) => {
+        pasted.current[side] = text;
+      }}
     />
   );
 
@@ -144,6 +352,16 @@ export default function JsonTool() {
         split={split}
         onSplit={setSplit}
         onResetSplit={resetSplit}
+        compare={{
+          on: compareOn,
+          reason: compareReason,
+          summary: compareActive ? summary : null,
+          position: compareActive && changes.length > 0 ? focusLabel(focus, changes.length) : null,
+          canStep: compareActive && changes.length > 0,
+          truncationNote: compareActive ? truncationNote : null,
+        }}
+        onToggleCompare={actions.toggleCompare}
+        onStep={actions.stepChange}
       />
       {pane('right')}
     </div>

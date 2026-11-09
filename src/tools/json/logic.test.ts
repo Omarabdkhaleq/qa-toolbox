@@ -3,6 +3,7 @@ import type { Change } from '../../core/diff/structural';
 import {
   MAX_HIGHLIGHTED_CHANGES,
   applyEdit,
+  changeTargets,
   compareAvailability,
   compareJson,
   computeStatus,
@@ -260,5 +261,28 @@ describe('merged tool additions', () => {
     expect(splitFromKey(100, 'Enter')).toBe(50);
     expect(splitFromKey(2, 'ArrowLeft')).toBe(0);
     expect(splitFromKey(98, 'ArrowRight')).toBe(100);
+  });
+});
+
+describe('changeTargets', () => {
+  it('outlines a changed value on both sides', () => {
+    const t = changeTargets({ kind: 'changed', path: ['a', 'b'], before: 1, after: 2 });
+    expect(t.left).toEqual({ focus: ['a', 'b'], scroll: ['a', 'b'] });
+    expect(t.right).toEqual({ focus: ['a', 'b'], scroll: ['a', 'b'] });
+  });
+
+  it('scrolls the side without the value to its parent', () => {
+    const added = changeTargets({ kind: 'added', path: ['list', 2], after: 1 });
+    expect(added.left).toEqual({ focus: null, scroll: ['list'] });
+    expect(added.right).toEqual({ focus: ['list', 2], scroll: ['list', 2] });
+    const removed = changeTargets({ kind: 'removed', path: ['x'], before: 1 });
+    expect(removed.left).toEqual({ focus: ['x'], scroll: ['x'] });
+    expect(removed.right).toEqual({ focus: null, scroll: null });
+  });
+
+  it('follows a moved item to its new index on the right', () => {
+    const t = changeTargets({ kind: 'moved', path: ['list', 0], toIndex: 2 });
+    expect(t.left.focus).toEqual(['list', 0]);
+    expect(t.right.focus).toEqual(['list', 2]);
   });
 });

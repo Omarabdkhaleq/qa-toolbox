@@ -42,6 +42,10 @@ export interface JsonEditorViewProps {
   testId?: string;
   /** Shows a note above the editor while it is in table mode (table view cannot paint highlights). */
   showTableNote?: boolean;
+  /** Focus left the editor; any pending onChange has been flushed before this is called. */
+  onBlur?: () => void;
+  /** Text pasted into the editor (reported when the paste event bubbles up). */
+  onPaste?: (text: string) => void;
 }
 
 const MODES: Record<JsonEditorMode, Mode> = { text: Mode.text, tree: Mode.tree, table: Mode.table };
@@ -63,12 +67,14 @@ export function JsonEditorView({
   focusPath = null,
   testId = 'json-editor-view',
   showTableNote = false,
+  onBlur,
+  onPaste,
 }: JsonEditorViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<ReturnType<typeof createJSONEditor> | null>(null);
   const lastText = useRef(value);
   const modeRef = useRef(mode);
-  const callbacks = useRef({ onChange, onModeChange });
+  const callbacks = useRef({ onChange, onModeChange, onBlur });
   const dark = useIsDarkTheme();
   const [currentMode, setCurrentMode] = useState<JsonEditorMode>(mode);
   const hl = useRef({ highlights, focusPath });
@@ -121,7 +127,7 @@ export function JsonEditorView({
   }));
 
   useEffect(() => {
-    callbacks.current = { onChange, onModeChange };
+    callbacks.current = { onChange, onModeChange, onBlur };
   });
 
   useEffect(() => {
@@ -141,6 +147,7 @@ export function JsonEditorView({
         callbacks.current.onChange(text);
       },
       onClassName: classNameFor,
+      onBlur: () => callbacks.current.onBlur?.(),
       onChangeMode: (next) => {
         modeRef.current = next as JsonEditorMode;
         setCurrentMode(next as JsonEditorMode);
@@ -157,7 +164,6 @@ export function JsonEditorView({
     observer.observe(target, { childList: true, subtree: true });
     return () => {
       observer.disconnect();
-      editorRef.current = null;
       editorRef.current = null;
       void editor.destroy().then(() => target.remove());
     };
@@ -191,7 +197,10 @@ export function JsonEditorView({
   }, [validator]);
 
   return (
-    <div className="json-editor-view-wrap">
+    <div
+      className="json-editor-view-wrap"
+      onPaste={onPaste && ((e) => onPaste(e.clipboardData.getData('text/plain')))}
+    >
       {showTableNote && currentMode === 'table' ? (
         <p className="json-editor-view__note" role="note">
           Differences are highlighted in text and tree views

@@ -7,13 +7,13 @@ import {
   type JsonEditorMode,
   type JsonEditorViewHandle,
 } from '../../core/json-view/JsonEditorView';
+import type { PathHighlights } from '../../core/json-view/highlights';
 import { createSchemaValidator } from '../../core/json-view/schemaValidator';
-import { useAsyncValue } from '../../core/react/useAsyncValue';
+import type { AsyncState } from '../../core/react/useAsyncValue';
 import { useDebouncedValue } from '../../core/react/useDebouncedValue';
+import type { PathSegment } from '../../core/diff/paths';
 import { Banner } from '../../core/ui/Banner';
-import { runInWorker, WORKER_THRESHOLD_CHARS } from '../../core/worker/runInWorker';
 import {
-  computeStatus,
   parseIndentChoice,
   statusLabel,
   type EditAction,
@@ -25,15 +25,6 @@ import { SchemaPanel } from './SchemaPanel';
 export type Side = 'left' | 'right';
 export type Notice = { kind: 'error' | 'info'; text: string } | null;
 
-const createStatusWorker = () =>
-  new Worker(new URL('./status.worker.ts', import.meta.url), { type: 'module' });
-
-async function computeStatusAsync(text: string, signal: AbortSignal): Promise<EditorStatus> {
-  return text.length > WORKER_THRESHOLD_CHARS
-    ? runInWorker<string, EditorStatus>(createStatusWorker, text, { signal })
-    : computeStatus(text);
-}
-
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 const LABEL: Record<Side, string> = { left: 'Left', right: 'Right' };
 
@@ -43,7 +34,12 @@ export interface EditorPaneProps {
   hidden?: boolean;
   ref?: Ref<JsonEditorViewHandle>;
   text: string;
+  /** Edits made in the editor (typing, tree/table edits). */
   onTextChange: (text: string) => void;
+  /** The whole document was replaced (Open file, drop). */
+  onReplaceText: (text: string) => void;
+  /** The document's status (computed by the parent from `text`). */
+  status: AsyncState<EditorStatus>;
   indent: IndentChoice;
   onIndentChange: (indent: IndentChoice) => void;
   mode: JsonEditorMode;
@@ -58,20 +54,24 @@ export interface EditorPaneProps {
   onCopy: () => void;
   /** The live editor text (edits not yet reported through onTextChange included). */
   getText: () => string;
+  highlights?: PathHighlights;
+  focusPath?: readonly PathSegment[] | null;
+  showTableNote?: boolean;
+  onEditorBlur?: () => void;
+  onEditorPaste?: (text: string) => void;
 }
 
 export function EditorPane(props: EditorPaneProps) {
-  const { side, ref, text, indent, schemaOpen, schemaText, notice, onNotice, onRun } = props;
+  const { side, ref, text, indent, schemaOpen, schemaText, notice, onNotice, onRun, status } =
+    props;
   const fileInput = useRef<HTMLInputElement>(null);
-
-  const status = useAsyncValue(useDebouncedValue(text, 150), computeStatusAsync);
   const debouncedSchema = useDebouncedValue(schemaText, 300);
   const schema = useMemo(() => createSchemaValidator(debouncedSchema), [debouncedSchema]);
   const validator = schemaOpen && schema?.ok ? schema.validator : undefined;
 
   const openFile = async (file: File) => {
     try {
-      props.onTextChange(await readFileAsText(file));
+      props.onReplaceText(await readFileAsText(file));
       onNotice(null);
     } catch (err) {
       onNotice({ kind: 'error', text: messageOf(err) });
@@ -163,6 +163,11 @@ export function EditorPane(props: EditorPaneProps) {
           mode={props.mode}
           onModeChange={props.onModeChange}
           validator={validator}
+          highlights={props.highlights}
+          focusPath={props.focusPath}
+          showTableNote={props.showTableNote}
+          onBlur={props.onEditorBlur}
+          onPaste={props.onEditorPaste}
         />
         {schemaOpen && (
           <SchemaPanel

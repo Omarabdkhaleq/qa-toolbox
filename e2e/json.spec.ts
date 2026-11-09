@@ -235,3 +235,367 @@ test('a closed side leaves the menu and the other pane laid out in their own col
   expect(left100.width).toBeGreaterThan(tool.width * 0.6);
   expect(menu100.x + menu100.width).toBeLessThanOrEqual(tool.x + tool.width + 1);
 });
+
+// Compare in place. The first block is ported from e2e/json-compare.spec.ts.
+
+const menu = (page: Page) => page.getByRole('group', { name: 'Compare controls' });
+const compareBox = (page: Page) => menu(page).getByRole('checkbox', { name: 'Compare' });
+const summary = (page: Page) => page.getByTestId('compare-summary');
+const position = (page: Page) => page.getByTestId('diff-focus');
+const nextChange = (page: Page) => menu(page).getByRole('button', { name: 'Next change' });
+const prevChange = (page: Page) => menu(page).getByRole('button', { name: 'Previous change' });
+const highlights = (page: Page) => page.locator('[class*="jt-hl"]');
+const fillBoth = async (page: Page, left: string, right: string) => {
+  await setCodeMirrorText(editor(page), left);
+  await setCodeMirrorText(editor(page, 'right'), right);
+};
+const compare = async (page: Page, left: string, right: string) => {
+  await fillBoth(page, left, right);
+  await expect(compareBox(page)).toBeEnabled();
+  await compareBox(page).check();
+};
+
+test('compare: asks for input when empty (Review Focus 4)', async ({ page }) => {
+  await expect(compareBox(page)).toBeDisabled();
+  await expect(compareBox(page)).not.toBeChecked();
+  await expect(compareBox(page)).toHaveAccessibleDescription('Paste JSON on both sides to compare');
+});
+
+test('compare: treats reordered keys as identical (Review Focus 5)', async ({ page }) => {
+  await compare(page, '{"a":1,"b":2}', '{"b":2,"a":1}');
+  await expect(summary(page)).toHaveText('No differences');
+});
+
+test('compare: a changed value is counted and focused in both editors', async ({ page }) => {
+  await compare(page, '{"user":{"email":"a@x.io"}}', '{"user":{"email":"b@x.io"}}');
+  await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 1 of 1');
+  for (const side of ['left', 'right'] as const) {
+    await expect(editor(page, side).locator('.jt-focus')).toHaveCount(1);
+    await expect(editor(page, side).locator('.jt-focus')).toContainText('"email"');
+  }
+});
+
+test('compare: shows reordered items with ids as moves, not changes (Review Focus 5)', async ({
+  page,
+}) => {
+  await compare(
+    page,
+    '[{"id":1,"n":"a"},{"id":2,"n":"b"},{"id":3,"n":"c"}]',
+    '[{"id":3,"n":"c"},{"id":1,"n":"a"},{"id":2,"n":"b"}]',
+  );
+  await expect(summary(page)).toContainText('0 changed');
+  await expect(summary(page)).not.toContainText(' 0 moved');
+  await expect(editor(page).locator('.jt-hl--moved').first()).toBeVisible();
+  await expect(editor(page, 'right').locator('.jt-hl--moved').first()).toBeVisible();
+});
+
+test('compare: detects a one-digit change in a big integer (Review Focus 1)', async ({ page }) => {
+  await compare(page, '{"id":12345678901234567890}', '{"id":12345678901234567891}');
+  await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
+  await expect(editor(page).locator('.jt-hl--changed')).toContainText('12345678901234567890');
+  await expect(editor(page, 'right').locator('.jt-hl--changed')).toContainText(
+    '12345678901234567891',
+  );
+});
+
+test('compare: asks to fix invalid input', async ({ page }) => {
+  await fillBoth(page, '{"a":', '{"a":1}');
+  await expect(compareBox(page)).toHaveAccessibleDescription('Fix the JSON errors to compare');
+  await expect(compareBox(page)).toBeDisabled();
+});
+
+test('compare: swaps sides', async ({ page }) => {
+  await compare(page, '{"a":1}', '{"a":1,"b":2}');
+  await expect(summary(page)).toContainText('1 added');
+  await menu(page).getByRole('button', { name: 'Swap sides', exact: true }).click();
+  await expect(summary(page)).toContainText('1 removed');
+});
+
+test('compare: loads a file into one side', async ({ page }) => {
+  await page.getByTestId('file-input-left').setInputFiles('fixtures/bom.json');
+  await expect(status(page)).toContainText('Valid JSON');
+  await setCodeMirrorText(editor(page, 'right'), '{"source":"windows","ok":true}');
+  await expect(compareBox(page)).toBeEnabled();
+  await compareBox(page).check();
+  await expect(summary(page)).toHaveText('No differences');
+});
+
+test('compare: highlights the focused change in the editors and moves it one change at a time', async ({
+  page,
+}) => {
+  // Changed keys a1, b1, c1 are separated by unchanged a2, b2, giving 3 changes.
+  await compare(
+    page,
+    '{"a1":1,"a2":0,"b1":1,"b2":0,"c1":1}',
+    '{"a1":2,"a2":0,"b1":2,"b2":0,"c1":2}',
+  );
+  await expect(summary(page)).toContainText('3 changes');
+  const focused = (side: Side) => editor(page, side).locator('.jt-focus');
+
+  await expect(position(page)).toHaveText('3 changes');
+  await expect(page.locator('.jt-focus')).toHaveCount(0);
+
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 1 of 3');
+  for (const side of ['left', 'right'] as const) {
+    await expect(focused(side)).toHaveCount(1); // one line in each editor
+    await expect(focused(side)).toContainText('"a1"');
+  }
+
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 2 of 3');
+  await expect(focused('left')).toContainText('"b1"');
+  await expect(focused('right')).toContainText('"b1"');
+  await expect(page.locator('.jt-focus', { hasText: '"a1"' })).toHaveCount(0);
+
+  await prevChange(page).click();
+  await expect(position(page)).toHaveText('Change 1 of 3');
+  await expect(focused('left')).toContainText('"a1"');
+
+  // At the last change, Next stays put.
+  await nextChange(page).click();
+  await nextChange(page).click();
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 3 of 3');
+  await expect(focused('left')).toContainText('"c1"');
+  await expect(focused('right')).toContainText('"c1"');
+});
+
+test('compare: focusing a specific change (Previous from no focus goes to the last)', async ({
+  page,
+}) => {
+  // The Changes drawer adds the click-a-row variant of this test.
+  await compare(page, '{"a1":1,"a2":0,"b1":1}', '{"a1":2,"a2":0,"b1":2}');
+  await expect(summary(page)).toContainText('2 changes');
+  await prevChange(page).click();
+  await expect(position(page)).toHaveText('Change 2 of 2');
+  await expect(editor(page).locator('.jt-focus').first()).toContainText('"b1"');
+  await expect(editor(page, 'right').locator('.jt-focus').first()).toContainText('"b1"');
+});
+
+// New compare behaviour.
+
+test('ticking Compare sorts both editors A→Z, each with its own indentation', async ({ page }) => {
+  await fillBoth(page, '{"b":1,"a":2}', '{"d":{"y":1,"x":2},"c":3}');
+  await toolbar(page, 'right').getByLabel('Indentation').selectOption('4');
+  await expect(compareBox(page)).toBeEnabled();
+  await compareBox(page).check();
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "a": 2,\n  "b": 1\n}');
+  await expect
+    .poll(() => readCodeMirrorText(editor(page, 'right')))
+    .toBe('{\n    "c": 3,\n    "d": {\n        "x": 2,\n        "y": 1\n    }\n}');
+  await compareBox(page).uncheck();
+  // Unticking leaves the text sorted.
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "a": 2,\n  "b": 1\n}');
+});
+
+test('ticking Compare keeps big integers exact (Review Focus 3)', async ({ page }) => {
+  await compare(page, '{"b":12345678901234567890,"a":1}', '{"a":1}');
+  await expect.poll(() => readCodeMirrorText(editor(page))).toMatch(/^\{\n {2}"a": 1,/);
+  expect(await readCodeMirrorText(editor(page))).toContain('12345678901234567890');
+});
+
+test('Compare is unavailable while a side is empty or invalid, and turns off when one breaks (Review Focus 4)', async ({
+  page,
+}) => {
+  await fillBoth(page, '{"a":', '{"a":1}');
+  await expect(compareBox(page)).toHaveAccessibleDescription('Fix the JSON errors to compare');
+  await expect(compareBox(page)).toBeDisabled();
+  expect(await readCodeMirrorText(editor(page))).toBe('{"a":');
+
+  await setCodeMirrorText(editor(page), '{"a":2}');
+  await expect(compareBox(page)).toBeEnabled();
+  await compareBox(page).check();
+  await expect(summary(page)).toContainText('1 changed');
+  await expect(highlights(page).first()).toBeVisible();
+
+  await setCodeMirrorText(editor(page), '{"a":');
+  await expect(compareBox(page)).not.toBeChecked();
+  await expect(compareBox(page)).toBeDisabled();
+  await expect(highlights(page)).toHaveCount(0);
+  await expect(summary(page)).toBeHidden();
+
+  await setCodeMirrorText(editor(page), '');
+  await expect(compareBox(page)).toHaveAccessibleDescription('Paste JSON on both sides to compare');
+  await expect(compareBox(page)).toBeDisabled();
+});
+
+test('typing is never re-sorted; leaving the editor re-sorts it (Review Focus 5)', async ({
+  page,
+}) => {
+  await compare(page, '{"b":1,"c":2}', '{"b":1,"c":3}');
+  await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "b": 1,\n  "c": 2\n}');
+
+  const content = editor(page).locator('.cm-content');
+  await content.click();
+  await content.press('ControlOrMeta+End');
+  await content.press('ArrowLeft');
+  await page.keyboard.insertText(',"a0":1');
+  await expect(summary(page)).toHaveText('2 changes: 0 added, 1 removed, 1 changed, 0 moved');
+  const typed = await readCodeMirrorText(editor(page));
+  expect(typed.indexOf('"a0"')).toBeGreaterThan(typed.indexOf('"c"'));
+
+  await editor(page, 'right').locator('.cm-content').click();
+  await expect
+    .poll(() => readCodeMirrorText(editor(page)))
+    .toBe('{\n  "a0": 1,\n  "b": 1,\n  "c": 2\n}');
+});
+
+test('whole-document replacements are sorted while Compare is on', async ({ page }) => {
+  await compare(page, '{"a":1}', '{"a":2}');
+  await expect(summary(page)).toContainText('1 changed');
+
+  await page.getByTestId('file-input-right').setInputFiles({
+    name: 'r.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"z":1,"a":1}'),
+  });
+  await expect
+    .poll(() => readCodeMirrorText(editor(page, 'right')))
+    .toBe('{\n  "a": 1,\n  "z": 1\n}');
+
+  await setCodeMirrorText(editor(page), '{"y":1,"a":1}');
+  await action(page, 'Format').click();
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "a": 1,\n  "y": 1\n}');
+
+  await setCodeMirrorText(editor(page), '{"q":1,"a":1}');
+  await menu(page).getByRole('button', { name: 'Copy left to right', exact: true }).click();
+  await expect
+    .poll(() => readCodeMirrorText(editor(page, 'right')))
+    .toBe('{\n  "a": 1,\n  "q": 1\n}');
+  await expect(summary(page)).toHaveText('No differences');
+});
+
+test('pasting over the whole document is sorted while Compare is on', async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(browserName !== 'chromium', 'Clipboard permissions are only scriptable in Chromium');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await compare(page, '{"a":1}', '{"a":2}');
+  await expect(summary(page)).toContainText('1 changed');
+  await page.evaluate(() => navigator.clipboard.writeText('{"m":1,"b":2}'));
+  const content = editor(page).locator('.cm-content');
+  await content.click();
+  await content.press('ControlOrMeta+a');
+  await content.press('ControlOrMeta+v');
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "b": 2,\n  "m": 1\n}');
+});
+
+test('a changed value is highlighted in both editors in text view and on its node in tree view', async ({
+  page,
+}) => {
+  await compare(page, '{"keep":1,"val":"old"}', '{"keep":1,"val":"new"}');
+  await expect(summary(page)).toContainText('1 changed');
+  await expect(editor(page).locator('.cm-line.jt-hl--changed')).toContainText('"val"');
+  await expect(editor(page, 'right').locator('.cm-line.jt-hl--changed')).toContainText('"val"');
+  await expect(editor(page).locator('.cm-line', { hasText: '"keep"' })).not.toHaveClass(/jt-hl/);
+
+  await editor(page)
+    .getByRole('button', { name: /^tree$/i })
+    .click();
+  await expect(editor(page).locator('.jse-tree-mode')).toBeVisible();
+  await expect(editor(page).locator('.jt-hl--changed').first()).toContainText('old');
+
+  await editor(page)
+    .getByRole('button', { name: /^text$/i })
+    .click();
+  await expect(editor(page).locator('.cm-line.jt-hl--changed')).toContainText('"val"');
+});
+
+test('unticking Compare removes every highlight and hides the step controls', async ({ page }) => {
+  await compare(page, '{"a":1,"b":[1]}', '{"a":2,"c":true}');
+  await expect(summary(page)).toContainText('3 changes');
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 1 of 3');
+  await expect(highlights(page).first()).toBeVisible();
+  await expect(page.locator('.jt-focus').first()).toBeVisible();
+
+  await compareBox(page).uncheck();
+  await expect(highlights(page)).toHaveCount(0);
+  await expect(page.locator('.jt-focus')).toHaveCount(0);
+  await expect(position(page)).toBeHidden();
+  await expect(nextChange(page)).toBeHidden();
+  await expect(prevChange(page)).toBeHidden();
+  await expect(summary(page)).toBeHidden();
+});
+
+test('table view shows a note instead of highlights and still scrolls to the change', async ({
+  page,
+}) => {
+  const rows = Array.from({ length: 200 }, (_, i) => ({ id: i, v: `value-${i}` }));
+  const changed = rows.map((r) => (r.id === 170 ? { ...r, v: 'changed-value' } : r));
+  await compare(page, JSON.stringify(rows), JSON.stringify(changed));
+  await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
+  const note = editor(page, 'right')
+    .locator('xpath=..')
+    .getByText('Differences are highlighted in text and tree views');
+
+  await editor(page, 'right')
+    .getByRole('button', { name: /^table$/i })
+    .click();
+  await expect(editor(page, 'right').locator('.jse-table-mode')).toBeVisible();
+  await expect(note).toBeVisible();
+  const cell = editor(page, 'right').getByText('changed-value');
+  await expect(cell).not.toBeInViewport();
+  await nextChange(page).click();
+  await expect(position(page)).toHaveText('Change 1 of 1');
+  await expect(cell).toBeInViewport();
+
+  await compareBox(page).uncheck();
+  await expect(note).toBeHidden();
+  await compareBox(page).check();
+  await expect(note).toBeVisible();
+  await editor(page, 'right')
+    .getByRole('button', { name: /^tree$/i })
+    .click();
+  await expect(note).toBeHidden();
+});
+
+test('closing a side disables Compare and keeps its value for when the side reopens', async ({
+  page,
+}) => {
+  await fillBoth(page, '{"a":1}', '{"a":2}');
+  await handle(page).focus();
+  await page.keyboard.press('Home');
+  await expect(page.getByTestId('json-left')).toBeHidden();
+  await expect(compareBox(page)).toBeDisabled();
+
+  await page.keyboard.press('Enter');
+  await expect(compareBox(page)).toBeEnabled();
+  await compareBox(page).check();
+  await expect(summary(page)).toContainText('1 changed');
+
+  await handle(page).focus();
+  await page.keyboard.press('End');
+  await expect(page.getByTestId('json-right')).toBeHidden();
+  await expect(compareBox(page)).toBeDisabled();
+  await expect(compareBox(page)).toBeChecked();
+  await expect(nextChange(page)).toBeDisabled();
+
+  await page.keyboard.press('Enter');
+  await expect(compareBox(page)).toBeEnabled();
+  await expect(compareBox(page)).toBeChecked();
+  await expect(highlights(page).first()).toBeVisible();
+});
+
+test('more than 10,000 changes shows how many are highlighted', async ({ page }) => {
+  const doc = (value: number) =>
+    JSON.stringify(
+      Object.fromEntries(
+        Array.from({ length: 10_001 }, (_, i) => [`k${String(i).padStart(5, '0')}`, value]),
+      ),
+    );
+  await compare(page, doc(0), doc(1));
+  await expect(summary(page)).toHaveText(
+    '10001 changes: 0 added, 0 removed, 10001 changed, 0 moved',
+    { timeout: 20_000 },
+  );
+  await expect(menu(page).getByRole('note')).toHaveText(
+    'Highlighting the first 10,000 of 10,001 changes',
+  );
+});

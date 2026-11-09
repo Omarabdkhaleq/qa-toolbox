@@ -163,6 +163,32 @@ export function sideOfChange(change: Change): DiffSide {
   return change.kind === 'removed' || change.kind === 'moved' ? 'left' : 'right';
 }
 
+export interface SideTarget {
+  /** Path to outline; null when the change has no value on this side. */
+  focus: readonly PathSegment[] | null;
+  /** Path to scroll to; the parent of an absent value, or null for a top-level one. */
+  scroll: readonly PathSegment[] | null;
+}
+
+/** Where a change sits in each editor. */
+export function changeTargets(change: Change): Record<DiffSide, SideTarget> {
+  const at = (path: readonly PathSegment[]): SideTarget => ({ focus: path, scroll: path });
+  const near: SideTarget = {
+    focus: null,
+    scroll: change.path.length > 1 ? change.path.slice(0, -1) : null,
+  };
+  switch (change.kind) {
+    case 'removed':
+      return { left: at(change.path), right: near };
+    case 'added':
+      return { left: near, right: at(change.path) };
+    case 'changed':
+      return { left: at(change.path), right: at(change.path) };
+    case 'moved':
+      return { left: at(change.path), right: at([...change.path.slice(0, -1), change.toIndex]) };
+  }
+}
+
 export function compareAvailability(
   left: EditorStatus,
   right: EditorStatus,
