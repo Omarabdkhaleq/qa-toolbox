@@ -205,3 +205,33 @@ test('narrow screens stack the panes and hide the handle', async ({ page }) => {
   if (!left || !right) throw new Error('missing layout');
   expect(right.y).toBeGreaterThanOrEqual(left.y + left.height);
 });
+
+test('a closed side leaves the menu and the other pane laid out in their own columns', async ({
+  page,
+}) => {
+  const menu = page.getByRole('group', { name: 'Compare controls' });
+  const tool = await page.locator('.json-tool').boundingBox();
+  if (!tool) throw new Error('missing layout');
+
+  await handle(page).focus();
+  await page.keyboard.press('Home');
+  await expect(page.getByTestId('json-left')).toBeHidden();
+  const menu0 = await menu.boundingBox();
+  const right0 = await page.getByTestId('json-right').boundingBox();
+  if (!menu0 || !right0) throw new Error('missing layout');
+  expect(menu0.width).toBeGreaterThan(100);
+  expect(menu0.x).toBeLessThan(tool.x + 40);
+  expect(right0.x).toBeGreaterThanOrEqual(menu0.x + menu0.width);
+  expect(right0.width).toBeGreaterThan(tool.width * 0.6);
+
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('End');
+  await expect(page.getByTestId('json-right')).toBeHidden();
+  const menu100 = await menu.boundingBox();
+  const left100 = await page.getByTestId('json-left').boundingBox();
+  if (!menu100 || !left100) throw new Error('missing layout');
+  expect(menu100.width).toBeGreaterThan(100);
+  expect(left100.x + left100.width).toBeLessThanOrEqual(menu100.x);
+  expect(left100.width).toBeGreaterThan(tool.width * 0.6);
+  expect(menu100.x + menu100.width).toBeLessThanOrEqual(tool.x + tool.width + 1);
+});

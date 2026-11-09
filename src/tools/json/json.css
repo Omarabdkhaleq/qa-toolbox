@@ -8,6 +8,15 @@
 .json-pane[hidden] {
   display: none;
 }
+.json-tool > [data-testid='json-left'] {
+  grid-column: 1;
+}
+.json-tool > .json-menu {
+  grid-column: 2;
+}
+.json-tool > [data-testid='json-right'] {
+  grid-column: 3;
+}
 .json-pane {
   display: flex;
   flex-direction: column;
@@ -87,6 +96,9 @@
   }
   .json-pane[hidden] {
     display: flex;
+  }
+  .json-tool > * {
+    grid-column: auto;
   }
   .json-pane {
     flex: none;
