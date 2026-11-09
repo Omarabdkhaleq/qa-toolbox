@@ -91,6 +91,37 @@ describe('CommandPalette', () => {
     expect(opener).toHaveFocus();
   });
 
+  it('keeps focus in the search box after clicking a disabled row, so Escape still closes', async () => {
+    const user = userEvent.setup();
+    setup([{ id: 'a', title: 'Compare', group: 'JSON', run: () => {}, disabledReason: 'Nope' }]);
+    const opener = screen.getByRole('button', { name: 'opener' });
+    await user.click(opener);
+    await user.click(screen.getByText('Nope'));
+    await user.click(screen.getByRole('dialog'));
+    expect(screen.getByRole('combobox')).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+
+  it('keeps focus in the search box after clicking the empty-state row', async () => {
+    const user = userEvent.setup();
+    setup([{ id: 'a', title: 'Toggle theme', group: 'App', run: () => {} }]);
+    await user.click(screen.getByRole('button', { name: 'opener' }));
+    await user.type(screen.getByRole('combobox'), 'zzz');
+    await user.click(screen.getByText('No matching commands'));
+    expect(screen.getByRole('combobox')).toHaveFocus();
+  });
+
+  it('does not let Tab leave the dialog', async () => {
+    const user = userEvent.setup();
+    setup([{ id: 'a', title: 'Toggle theme', group: 'App', run: () => {} }]);
+    await user.click(screen.getByRole('button', { name: 'opener' }));
+    await user.tab();
+    await user.tab({ shift: true });
+    expect(screen.getByRole('combobox')).toHaveFocus();
+  });
+
   it('runs a command from its keyboard shortcut via the window listener', () => {
     const run = vi.fn();
     render(

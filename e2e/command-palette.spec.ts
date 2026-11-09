@@ -93,3 +93,18 @@ test('the button stays above the Changes drawer', async ({ page }) => {
   const b = (await button(page).boundingBox())!;
   expect(b.y + b.height).toBeLessThanOrEqual(d.y);
 });
+
+test('clicking a non-focusable part of the palette keeps Escape and Tab working', async ({
+  page,
+}) => {
+  await pretend(page, 'Win32');
+  await page.goto('/#/tools/json');
+  await button(page).click();
+  await palette(page).getByRole('combobox').fill('zzz-no-match');
+  await palette(page).getByText('No matching commands').click();
+  await expect(palette(page).getByRole('combobox')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(palette(page).getByRole('combobox')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(palette(page)).toHaveCount(0);
+});

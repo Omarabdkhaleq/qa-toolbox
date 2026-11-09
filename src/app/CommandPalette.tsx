@@ -77,6 +77,11 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-label="Command palette"
         onKeyDown={onKeyDown}
+        // Keep focus in the search box when a non-focusable part is clicked, so the
+        // keyboard handling and the focus trap keep working.
+        onMouseDown={(e) => {
+          if (e.target !== inputRef.current) e.preventDefault();
+        }}
       >
         <input
           ref={inputRef}
