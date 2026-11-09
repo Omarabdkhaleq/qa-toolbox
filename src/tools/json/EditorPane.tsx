@@ -57,6 +57,7 @@ export interface EditorPaneProps {
   highlights?: PathHighlights;
   focusPath?: readonly PathSegment[] | null;
   showTableNote?: boolean;
+  onEditorFocus?: () => void;
   onEditorBlur?: () => void;
   onEditorPaste?: (text: string) => void;
 }
@@ -166,6 +167,7 @@ export function EditorPane(props: EditorPaneProps) {
           highlights={props.highlights}
           focusPath={props.focusPath}
           showTableNote={props.showTableNote}
+          onFocus={props.onEditorFocus}
           onBlur={props.onEditorBlur}
           onPaste={props.onEditorPaste}
         />

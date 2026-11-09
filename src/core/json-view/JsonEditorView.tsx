@@ -26,6 +26,8 @@ export interface JsonEditorViewHandle {
   getText: () => string;
   /** Scrolls the node (tree/table) or line (text) at `path` into view. */
   scrollToPath: (path: readonly PathSegment[]) => Promise<void>;
+  /** Moves keyboard focus into the editor. */
+  focus: () => void;
 }
 
 export interface JsonEditorViewProps {
@@ -42,6 +44,8 @@ export interface JsonEditorViewProps {
   testId?: string;
   /** Shows a note above the editor while it is in table mode (table view cannot paint highlights). */
   showTableNote?: boolean;
+  /** Focus moved into the editor. */
+  onFocus?: () => void;
   /** Focus left the editor; any pending onChange has been flushed before this is called. */
   onBlur?: () => void;
   /** Text pasted into the editor (reported when the paste event bubbles up). */
@@ -67,6 +71,7 @@ export function JsonEditorView({
   focusPath = null,
   testId = 'json-editor-view',
   showTableNote = false,
+  onFocus,
   onBlur,
   onPaste,
 }: JsonEditorViewProps) {
@@ -74,7 +79,7 @@ export function JsonEditorView({
   const editorRef = useRef<ReturnType<typeof createJSONEditor> | null>(null);
   const lastText = useRef(value);
   const modeRef = useRef(mode);
-  const callbacks = useRef({ onChange, onModeChange, onBlur });
+  const callbacks = useRef({ onChange, onModeChange, onFocus, onBlur });
   const dark = useIsDarkTheme();
   const [currentMode, setCurrentMode] = useState<JsonEditorMode>(mode);
   const hl = useRef({ highlights, focusPath });
@@ -124,10 +129,11 @@ export function JsonEditorView({
       }
       await editorRef.current?.scrollTo(path.map(String));
     },
+    focus: () => editorRef.current?.focus(),
   }));
 
   useEffect(() => {
-    callbacks.current = { onChange, onModeChange, onBlur };
+    callbacks.current = { onChange, onModeChange, onFocus, onBlur };
   });
 
   useEffect(() => {
@@ -147,6 +153,7 @@ export function JsonEditorView({
         callbacks.current.onChange(text);
       },
       onClassName: classNameFor,
+      onFocus: () => callbacks.current.onFocus?.(),
       onBlur: () => callbacks.current.onBlur?.(),
       onChangeMode: (next) => {
         modeRef.current = next as JsonEditorMode;

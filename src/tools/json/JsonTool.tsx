@@ -35,10 +35,18 @@ const createCompareWorker = () =>
 const createEditWorker = () =>
   new Worker(new URL('./edit.worker.ts', import.meta.url), { type: 'module' });
 
-async function computeStatusAsync(text: string, signal: AbortSignal): Promise<EditorStatus> {
-  return text.length > WORKER_THRESHOLD_CHARS
-    ? runInWorker<string, EditorStatus>(createStatusWorker, text, { signal })
-    : computeStatus(text);
+/** The status together with the text it describes, so a stale status can be told apart. */
+interface TextStatus {
+  text: string;
+  status: EditorStatus;
+}
+
+async function computeStatusAsync(text: string, signal: AbortSignal): Promise<TextStatus> {
+  const status =
+    text.length > WORKER_THRESHOLD_CHARS
+      ? await runInWorker<string, EditorStatus>(createStatusWorker, text, { signal })
+      : computeStatus(text);
+  return { text, status };
 }
 
 /** `null` input = Compare is off. */
@@ -65,8 +73,11 @@ async function sortKeysAsync(text: string, indent: IndentChoice): Promise<EditRe
 const SIDES: readonly Side[] = ['left', 'right'];
 const NO_CHANGES: readonly Change[] = [];
 const SPLIT_CLOSED_REASON = 'Open both editors to compare';
-const statusOf = (s: AsyncState<EditorStatus>): EditorStatus =>
-  s.status === 'done' ? s.value : { state: 'empty' };
+const EMPTY_STATUS: EditorStatus = { state: 'empty' };
+const statusOf = (s: AsyncState<TextStatus>): EditorStatus =>
+  s.status === 'done' ? s.value.status : EMPTY_STATUS;
+const paneStatus = (s: AsyncState<TextStatus>): AsyncState<EditorStatus> =>
+  s.status === 'done' ? { status: 'done', value: s.value.status } : s;
 const normalizeNewlines = (text: string) => text.replace(/\r\n?/g, '\n').trim();
 
 interface SideState {
@@ -76,6 +87,8 @@ interface SideState {
   schemaText: string;
   mode: JsonEditorMode;
   notice: Notice;
+  /** Where the latest text came from: typed in the editor, or replaced from outside it. */
+  lastChange: 'editor' | 'external';
 }
 
 const initialSide = (): SideState => ({
@@ -85,6 +98,7 @@ const initialSide = (): SideState => ({
   schemaText: '',
   mode: 'text',
   notice: null,
+  lastChange: 'external',
 });
 
 const ACTION_VERB: Record<EditAction['kind'], string> = {
@@ -124,9 +138,23 @@ export default function JsonTool() {
     left: useAsyncValue(useDebouncedValue(sides.left.text, 150), computeStatusAsync),
     right: useAsyncValue(useDebouncedValue(sides.right.text, 150), computeStatusAsync),
   };
+  const [focusedSide, setFocusedSide] = useState<Side | null>(null);
   const availability = compareAvailability(statusOf(statuses.left), statusOf(statuses.right));
-  // A side became empty or invalid: Compare turns off (the user re-ticks it after fixing).
-  if (compareOn && !availability.ok) {
+  // A status still describing older text (or that failed) is not acted on yet, except on error.
+  const settled = (side: Side) => {
+    const s = statuses[side];
+    return s.status === 'error' || (s.status === 'done' && s.value.text === sides[side].text);
+  };
+  // A side that became empty or invalid while the user types in it only pauses Compare. Once it
+  // is broken and not being typed in (focus left, or the change came from outside the editor),
+  // Compare turns off and the user re-ticks it after fixing.
+  const turnsOff = SIDES.some(
+    (side) =>
+      statusOf(statuses[side]).state !== 'valid' &&
+      settled(side) &&
+      !(side === focusedSide && sides[side].lastChange === 'editor'),
+  );
+  if (compareOn && !availability.ok && turnsOff) {
     setCompareOn(false);
     setFocusIndex(null);
   }
@@ -135,8 +163,9 @@ export default function JsonTool() {
     : compareAvailable
       ? undefined
       : SPLIT_CLOSED_REASON;
-  // With a side closed by the split, Compare keeps its value but does nothing until it reopens.
-  const compareActive = compareOn && compareAvailable;
+  // With a side closed by the split, Compare keeps its value but does nothing until it reopens;
+  // while a side is empty or invalid (paused), it does nothing either.
+  const compareActive = compareOn && compareAvailable && availability.ok;
 
   const debouncedLeft = useDebouncedValue(sides.left.text, 250);
   const debouncedRight = useDebouncedValue(sides.right.text, 250);
@@ -153,7 +182,15 @@ export default function JsonTool() {
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const changesButton = useRef<HTMLButtonElement>(null);
-  const drawerShown = drawerOpen && compareActive && changes.length > 0;
+  const compareBox = useRef<HTMLInputElement>(null);
+  // The drawer closes (and stays closed) when Compare pauses or turns off, or nothing differs.
+  if (drawerOpen && !(compareActive && changes.length > 0)) setDrawerOpen(false);
+  // For the drawer's focus fallback, which runs after this render has committed.
+  const brokenSide = useRef<Side | null>(null);
+  useEffect(() => {
+    brokenSide.current =
+      SIDES.find((side) => statusOf(statuses[side]).state !== 'valid') ?? focusedSide;
+  });
   const focus = focusIndex !== null && focusIndex < changes.length ? focusIndex : null;
   const focusedChange = focus !== null ? changes[focus] : undefined;
   const targets = focusedChange && !repulsing ? changeTargets(focusedChange) : null;
@@ -171,7 +208,7 @@ export default function JsonTool() {
   };
   const replace = (side: Side, text: string) => {
     dirty.current[side] = false;
-    patch(side, { text: sortedIfComparing(side, text), notice: null });
+    patch(side, { text: sortedIfComparing(side, text), notice: null, lastChange: 'external' });
   };
 
   /** Sorts an editor's live text (in a worker when large); leaves it alone if it changed meanwhile. */
@@ -195,16 +232,30 @@ export default function JsonTool() {
     const paste = pasted.current[side];
     pasted.current[side] = null;
     if (compareOn && paste !== null && normalizeNewlines(paste) === normalizeNewlines(text)) {
-      replace(side, text);
+      // Pasted in the editor, so it still counts as typing there.
+      dirty.current[side] = false;
+      patch(side, { text: sortedIfComparing(side, text), notice: null, lastChange: 'editor' });
       return;
     }
     dirty.current[side] = true;
-    patch(side, { text });
+    patch(side, { text, lastChange: 'editor' });
   };
 
   const onEditorBlur = (side: Side) => {
+    setFocusedSide((current) => (current === side ? null : current));
     if (compareOn && dirty.current[side]) void sortLive(side);
   };
+
+  /** The drawer closed while it had focus: move focus somewhere useful instead of the page. */
+  const onDrawerFocusLost = () =>
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      // Something already took focus (an explicit close returns it to the Changes button).
+      if (active && active !== document.body) return;
+      const box = compareBox.current;
+      if (box && !box.disabled) box.focus();
+      else refs[brokenSide.current ?? 'left'].current?.focus();
+    });
 
   const toggleCompare = () => {
     setFocusIndex(null);
@@ -269,13 +320,13 @@ export default function JsonTool() {
       const right = sortedIfComparing('right', liveText('left'));
       dirty.current = { left: false, right: false };
       setSides((s) => ({
-        left: { ...s.left, text: left },
-        right: { ...s.right, text: right },
+        left: { ...s.left, text: left, lastChange: 'external' },
+        right: { ...s.right, text: right, lastChange: 'external' },
       }));
     },
     copy: (from: Side, to: Side) => {
       dirty.current[to] = false;
-      patch(to, { text: sortedIfComparing(to, liveText(from)) });
+      patch(to, { text: sortedIfComparing(to, liveText(from)), lastChange: 'external' });
     },
     toggleCompare,
     openChanges: () => setDrawerOpen(true),
@@ -326,7 +377,7 @@ export default function JsonTool() {
       text={sides[side].text}
       onTextChange={(text) => onEdit(side, text)}
       onReplaceText={(text) => replace(side, text)}
-      status={statuses[side]}
+      status={paneStatus(statuses[side])}
       indent={sides[side].indent}
       onIndentChange={(indent) => patch(side, { indent })}
       mode={sides[side].mode}
@@ -343,6 +394,7 @@ export default function JsonTool() {
       highlights={highlights?.[side]}
       focusPath={targets?.[side].focus ?? null}
       showTableNote={compareActive}
+      onEditorFocus={() => setFocusedSide(side)}
       onEditorBlur={() => onEditorBlur(side)}
       onEditorPaste={(text) => {
         pasted.current[side] = text;
@@ -377,14 +429,16 @@ export default function JsonTool() {
           onStep={actions.stepChange}
           onOpenChanges={actions.openChanges}
           changesButtonRef={changesButton}
+          compareBoxRef={compareBox}
         />
         {pane('right')}
       </div>
-      {drawerShown && (
+      {drawerOpen && (
         <ChangesDrawer
           changes={changes}
           onSelect={actions.focusChange}
           onClose={actions.closeChanges}
+          onFocusLost={onDrawerFocusLost}
         />
       )}
     </div>

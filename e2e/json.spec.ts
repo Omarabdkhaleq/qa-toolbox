@@ -412,6 +412,7 @@ test('Compare is unavailable while a side is empty or invalid, and turns off whe
   await expect(highlights(page).first()).toBeVisible();
 
   await setCodeMirrorText(editor(page), '{"a":');
+  await editor(page, 'right').locator('.cm-content').click();
   await expect(compareBox(page)).not.toBeChecked();
   await expect(compareBox(page)).toBeDisabled();
   await expect(highlights(page)).toHaveCount(0);
@@ -679,5 +680,117 @@ test('drawer: jumping from a row focuses that change in both editors', async ({ 
   await expect(position(page)).toHaveText('Change 2 of 2');
   for (const side of ['left', 'right'] as const) {
     await expect(editor(page, side).locator('.jt-focus')).toContainText('"b1"');
+  }
+});
+
+// Compare pauses while the user types invalid JSON; the drawer follows Compare and never hides the focus.
+
+const startPausable = async (page: Page) => {
+  await compare(page, '{"a":1}', '{"a":2}');
+  await expect(summary(page)).toContainText('1 changed');
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "a": 1\n}');
+};
+const typeBeforeLeftClosingBrace = async (page: Page, text: string) => {
+  const content = editor(page).locator('.cm-content');
+  await content.click();
+  await content.press('ControlOrMeta+End');
+  await content.press('ArrowLeft');
+  await page.keyboard.type(text);
+};
+
+test('typing invalid JSON pauses Compare; valid again resumes it without re-ticking', async ({
+  page,
+}) => {
+  await startPausable(page);
+  await typeBeforeLeftClosingBrace(page, ',"b"');
+  await expect(menu(page).getByText('Fix the JSON errors to compare')).toBeVisible({
+    timeout: 1000,
+  });
+  await expect(highlights(page)).toHaveCount(0, { timeout: 1000 });
+  await expect(compareBox(page)).toBeChecked();
+
+  await page.keyboard.type(':3');
+  await expect(editor(page).locator('.jt-hl--changed').first()).toBeVisible();
+  await expect(compareBox(page)).toBeChecked();
+  await expect(summary(page)).toContainText('1 changed');
+});
+
+test('leaving the editor while its JSON is invalid turns Compare off', async ({ page }) => {
+  await startPausable(page);
+  await typeBeforeLeftClosingBrace(page, ',"b"');
+  await expect(menu(page).getByText('Fix the JSON errors to compare')).toBeVisible();
+  await expect(compareBox(page)).toBeChecked();
+  await editor(page, 'right').locator('.cm-content').click();
+  await expect(compareBox(page)).not.toBeChecked();
+});
+
+test('emptying the focused editor pauses Compare until focus leaves it', async ({ page }) => {
+  await startPausable(page);
+  const content = editor(page).locator('.cm-content');
+  await content.click();
+  await content.press('ControlOrMeta+a');
+  await content.press('Delete');
+  await expect(menu(page).getByText('Paste JSON on both sides to compare')).toBeVisible();
+  await expect(compareBox(page)).toBeChecked();
+  await expect(highlights(page)).toHaveCount(0);
+  await editor(page, 'right').locator('.cm-content').click();
+  await expect(compareBox(page)).not.toBeChecked();
+});
+
+test('an invalid file loaded while Compare is on turns it off immediately', async ({ page }) => {
+  await startPausable(page);
+  await editor(page).locator('.cm-content').click();
+  await page.getByTestId('file-input-left').setInputFiles({
+    name: 'bad.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"a":'),
+  });
+  await expect(compareBox(page)).not.toBeChecked();
+});
+
+test('the drawer closes when Compare pauses and does not come back on its own', async ({
+  page,
+}) => {
+  await startPausable(page);
+  await changesButton(page).click();
+  await expect(drawer(page)).toBeVisible();
+  await typeBeforeLeftClosingBrace(page, ',"b"');
+  await expect(drawer(page)).toHaveCount(0);
+  await page.keyboard.type(':3');
+  await expect(editor(page).locator('.jt-hl--changed').first()).toBeVisible();
+  await expect(changesButton(page)).toBeEnabled();
+  await expect(drawer(page)).toHaveCount(0);
+});
+
+test('with the drawer open, a focused change on the last line stays above the drawer', async ({
+  page,
+}) => {
+  const doc = (last: number) =>
+    JSON.stringify(
+      Object.fromEntries(
+        Array.from({ length: 100 }, (_, i) => [
+          `k${String(i).padStart(3, '0')}`,
+          i === 99 ? last : i,
+        ]),
+      ),
+    );
+  await compare(page, doc(99), doc(-1));
+  await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
+  await changesButton(page).click();
+  await drawer(page)
+    .getByRole('button', { name: /\$\.k099/ })
+    .click();
+  await expect(position(page)).toHaveText('Change 1 of 1');
+  const drawerBox = await drawer(page).boundingBox();
+  if (!drawerBox) throw new Error('missing drawer');
+  for (const side of ['left', 'right'] as const) {
+    const line = editor(page, side).locator('.jt-focus');
+    await expect(line).toContainText('"k099"');
+    await expect
+      .poll(async () => {
+        const box = await line.boundingBox();
+        return box ? box.y + box.height : Infinity;
+      })
+      .toBeLessThanOrEqual(drawerBox.y);
   }
 });

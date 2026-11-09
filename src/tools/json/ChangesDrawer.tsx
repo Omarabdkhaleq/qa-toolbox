@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { ChangeList } from '../../core/diff/ChangeList';
 import type { Change } from '../../core/diff/structural';
 
@@ -6,13 +6,28 @@ export function ChangesDrawer({
   changes,
   onSelect,
   onClose,
+  onFocusLost,
 }: {
   changes: readonly Change[];
   onSelect: (index: number) => void;
   onClose: () => void;
+  /** The drawer is closing while keyboard focus is inside it. */
+  onFocusLost?: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const onFocusLostRef = useRef(onFocusLost);
+  useEffect(() => {
+    onFocusLostRef.current = onFocusLost;
+  });
+
+  // Layout cleanup runs while the drawer is still in the document, so focus can be checked.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    return () => {
+      if (el?.contains(document.activeElement)) onFocusLostRef.current?.();
+    };
+  }, []);
 
   // Opening moves focus into the drawer.
   useEffect(() => {

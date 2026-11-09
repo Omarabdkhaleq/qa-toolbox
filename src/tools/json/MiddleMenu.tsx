@@ -27,6 +27,7 @@ export function MiddleMenu({
   onStep,
   onOpenChanges,
   changesButtonRef,
+  compareBoxRef,
 }: {
   split: number;
   onSplit: (value: number) => void;
@@ -38,6 +39,7 @@ export function MiddleMenu({
   onStep: (step: FocusStep) => void;
   onOpenChanges: () => void;
   changesButtonRef: Ref<HTMLButtonElement>;
+  compareBoxRef?: Ref<HTMLInputElement>;
 }) {
   const reasonId = useId();
   return (
@@ -46,6 +48,7 @@ export function MiddleMenu({
       <div className="json-menu__compare">
         <label className="json-menu__toggle">
           <input
+            ref={compareBoxRef}
             type="checkbox"
             checked={compare.on}
             disabled={compare.reason !== undefined}
