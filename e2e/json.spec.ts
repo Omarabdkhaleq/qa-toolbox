@@ -599,3 +599,85 @@ test('more than 10,000 changes shows how many are highlighted', async ({ page })
     'Highlighting the first 10,000 of 10,001 changes',
   );
 });
+
+// Changes drawer
+
+const changesButton = (page: Page) => menu(page).getByRole('button', { name: /^Changes \(/ });
+const drawer = (page: Page) => page.getByRole('region', { name: 'Changes' });
+
+test('drawer: the Changes button is disabled while Compare is off', async ({ page }) => {
+  await expect(changesButton(page)).toBeDisabled();
+  await fillBoth(page, '{"a":1}', '{"a":2}');
+  await expect(changesButton(page)).toBeDisabled();
+});
+
+test('drawer: lists a change, focuses it on click, closes with Escape and returns focus', async ({
+  page,
+}) => {
+  await compare(page, '{"user":{"email":"a@x.io"}}', '{"user":{"email":"b@x.io"}}');
+  await expect(changesButton(page)).toHaveText('Changes (1)');
+  await changesButton(page).click();
+  await expect(drawer(page)).toBeVisible();
+  await expect(drawer(page).getByText('$.user.email')).toBeVisible();
+  await expect(drawer(page)).toContainText('"a@x.io" → "b@x.io"');
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.style.getPropertyValue('--drawer-height')),
+    )
+    .toMatch(/^\d+(\.\d+)?px$/);
+  await expect(drawer(page).locator(':focus')).toHaveCount(1);
+
+  await drawer(page)
+    .getByRole('button', { name: /\$\.user\.email/ })
+    .click();
+  await expect(position(page)).toHaveText('Change 1 of 1');
+  for (const side of ['left', 'right'] as const) {
+    await expect(editor(page, side).locator('.jt-focus')).toHaveCount(1);
+  }
+
+  await page.keyboard.press('Escape');
+  await expect(drawer(page)).toHaveCount(0);
+  await expect(changesButton(page)).toBeFocused();
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.style.getPropertyValue('--drawer-height')),
+    )
+    .toBe('');
+});
+
+test('drawer: the Close changes button closes it', async ({ page }) => {
+  await compare(page, '{"a":1}', '{"a":2}');
+  await changesButton(page).click();
+  await drawer(page).getByRole('button', { name: 'Close changes' }).click();
+  await expect(drawer(page)).toHaveCount(0);
+  await expect(changesButton(page)).toBeFocused();
+});
+
+test('drawer: lists moved items and exact big integers', async ({ page }) => {
+  await compare(
+    page,
+    '[{"id":1,"n":"a"},{"id":2,"n":"b"},{"id":3,"n":"c"}]',
+    '[{"id":3,"n":"c"},{"id":1,"n":"a"},{"id":2,"n":"b"}]',
+  );
+  await changesButton(page).click();
+  await expect(drawer(page)).toContainText('Moved');
+  await page.keyboard.press('Escape');
+  await compareBox(page).uncheck();
+  await compare(page, '{"id":12345678901234567890}', '{"id":12345678901234567891}');
+  await changesButton(page).click();
+  await expect(drawer(page)).toContainText('12345678901234567890 → 12345678901234567891');
+});
+
+test('drawer: jumping from a row focuses that change in both editors', async ({ page }) => {
+  await compare(page, '{"a1":1,"a2":0,"b1":1}', '{"a1":2,"a2":0,"b1":2}');
+  await expect(summary(page)).toContainText('2 changes');
+  await changesButton(page).click();
+  await drawer(page)
+    .getByRole('list', { name: 'Changes' })
+    .getByRole('button', { name: /\$\.b1/ })
+    .click();
+  await expect(position(page)).toHaveText('Change 2 of 2');
+  for (const side of ['left', 'right'] as const) {
+    await expect(editor(page, side).locator('.jt-focus')).toContainText('"b1"');
+  }
+});

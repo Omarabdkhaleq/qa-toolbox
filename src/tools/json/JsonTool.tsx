@@ -25,6 +25,7 @@ import {
   type EditResult,
   type IndentChoice,
 } from './logic';
+import { ChangesDrawer } from './ChangesDrawer';
 import { MiddleMenu } from './MiddleMenu';
 
 const createStatusWorker = () =>
@@ -150,6 +151,9 @@ export default function JsonTool() {
     () => (compareResult?.ok ? highlightsFor(compareResult.changes) : null),
     [compareResult],
   );
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const changesButton = useRef<HTMLButtonElement>(null);
+  const drawerShown = drawerOpen && compareActive && changes.length > 0;
   const focus = focusIndex !== null && focusIndex < changes.length ? focusIndex : null;
   const focusedChange = focus !== null ? changes[focus] : undefined;
   const targets = focusedChange && !repulsing ? changeTargets(focusedChange) : null;
@@ -274,6 +278,12 @@ export default function JsonTool() {
       patch(to, { text: sortedIfComparing(to, liveText(from)) });
     },
     toggleCompare,
+    openChanges: () => setDrawerOpen(true),
+    closeChanges: () => {
+      setDrawerOpen(false);
+      // The drawer unmounts on this render; return focus once it has.
+      requestAnimationFrame(() => changesButton.current?.focus());
+    },
     stepChange,
     focusChange,
   };
@@ -341,29 +351,42 @@ export default function JsonTool() {
   );
 
   return (
-    <div
-      className="json-tool"
-      style={{ gridTemplateColumns: `minmax(0, ${split}fr) auto minmax(0, ${100 - split}fr)` }}
-    >
-      {pane('left')}
-      <MiddleMenu
-        onSwap={actions.swap}
-        onCopy={actions.copy}
-        split={split}
-        onSplit={setSplit}
-        onResetSplit={resetSplit}
-        compare={{
-          on: compareOn,
-          reason: compareReason,
-          summary: compareActive ? summary : null,
-          position: compareActive && changes.length > 0 ? focusLabel(focus, changes.length) : null,
-          canStep: compareActive && changes.length > 0,
-          truncationNote: compareActive ? truncationNote : null,
-        }}
-        onToggleCompare={actions.toggleCompare}
-        onStep={actions.stepChange}
-      />
-      {pane('right')}
+    <div className="json-root">
+      <div
+        className="json-tool"
+        style={{ gridTemplateColumns: `minmax(0, ${split}fr) auto minmax(0, ${100 - split}fr)` }}
+      >
+        {pane('left')}
+        <MiddleMenu
+          onSwap={actions.swap}
+          onCopy={actions.copy}
+          split={split}
+          onSplit={setSplit}
+          onResetSplit={resetSplit}
+          compare={{
+            on: compareOn,
+            reason: compareReason,
+            summary: compareActive ? summary : null,
+            position:
+              compareActive && changes.length > 0 ? focusLabel(focus, changes.length) : null,
+            canStep: compareActive && changes.length > 0,
+            truncationNote: compareActive ? truncationNote : null,
+            changeCount: changes.length,
+          }}
+          onToggleCompare={actions.toggleCompare}
+          onStep={actions.stepChange}
+          onOpenChanges={actions.openChanges}
+          changesButtonRef={changesButton}
+        />
+        {pane('right')}
+      </div>
+      {drawerShown && (
+        <ChangesDrawer
+          changes={changes}
+          onSelect={actions.focusChange}
+          onClose={actions.closeChanges}
+        />
+      )}
     </div>
   );
 }

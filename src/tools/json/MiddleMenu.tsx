@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type Ref } from 'react';
 import type { FocusStep } from '../../core/diff/focus';
 import { SplitHandle } from './SplitHandle';
 
@@ -12,6 +12,8 @@ export interface CompareControls {
   position: string | null;
   canStep: boolean;
   truncationNote: string | null;
+  /** Number of changes the drawer lists. */
+  changeCount: number;
 }
 
 export function MiddleMenu({
@@ -23,6 +25,8 @@ export function MiddleMenu({
   compare,
   onToggleCompare,
   onStep,
+  onOpenChanges,
+  changesButtonRef,
 }: {
   split: number;
   onSplit: (value: number) => void;
@@ -32,6 +36,8 @@ export function MiddleMenu({
   compare: CompareControls;
   onToggleCompare: () => void;
   onStep: (step: FocusStep) => void;
+  onOpenChanges: () => void;
+  changesButtonRef: Ref<HTMLButtonElement>;
 }) {
   const reasonId = useId();
   return (
@@ -85,6 +91,14 @@ export function MiddleMenu({
             )}
           </div>
         )}
+        <button
+          ref={changesButtonRef}
+          type="button"
+          disabled={!compare.on || compare.summary === null || compare.changeCount === 0}
+          onClick={onOpenChanges}
+        >
+          Changes ({compare.changeCount})
+        </button>
         {compare.truncationNote && (
           <p className="json-menu__hint" role="note">
             {compare.truncationNote}
