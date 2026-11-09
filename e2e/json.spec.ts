@@ -941,3 +941,34 @@ test('a change in a longer right-hand array is still highlighted and focused on 
   await nextChange(page).click();
   await expect(editor(page).locator('.jt-focus')).toHaveText('    "n": "b"');
 });
+
+test('clicking the pane’s Repair while Compare is paused keeps Compare on and resumes it', async ({
+  page,
+}) => {
+  await startPausable(page);
+  await typeBeforeLeftClosingBrace(page, ",'b':2");
+  await expect(menu(page).getByText('Fix the JSON errors to compare')).toBeVisible();
+  await expect(compareBox(page)).toBeChecked();
+  // A real click holds the button down for a moment; the editor's blur lands before the click.
+  await action(page, 'Repair').click({ delay: 200 });
+  await expect(status(page)).toContainText('Valid JSON');
+  await expect(summary(page)).toHaveText('2 changes: 0 added, 1 removed, 1 changed, 0 moved');
+  await expect(compareBox(page)).toBeChecked();
+  await expect(editor(page).locator('.cm-line.jt-hl--changed').first()).toBeVisible();
+});
+
+test('clicking the editor’s own Undo while Compare is paused keeps Compare on', async ({
+  page,
+}) => {
+  await startPausable(page);
+  const content = editor(page).locator('.cm-content');
+  await content.click();
+  await content.press('ControlOrMeta+End');
+  await content.press('ArrowLeft');
+  await page.keyboard.insertText(',"b"');
+  await expect(menu(page).getByText('Fix the JSON errors to compare')).toBeVisible();
+  await editor(page).getByRole('button', { name: /^Undo/ }).click({ delay: 200 });
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "a": 1\n}');
+  await expect(summary(page)).toHaveText('1 change: 0 added, 0 removed, 1 changed, 0 moved');
+  await expect(compareBox(page)).toBeChecked();
+});

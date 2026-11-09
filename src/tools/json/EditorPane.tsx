@@ -1,4 +1,4 @@
-import { useMemo, useRef, type Ref } from 'react';
+import { useEffect, useMemo, useRef, type Ref } from 'react';
 import { downloadText } from '../../core/io/download';
 import { readFileAsText } from '../../core/io/file';
 import { useFileDrop } from '../../core/io/useFileDrop';
@@ -62,6 +62,61 @@ export interface EditorPaneProps {
   onEditorPaste?: (text: string) => void;
 }
 
+const isNode = (value: unknown): value is Node => value instanceof Node;
+
+/**
+ * The editor reports a blur when a click elsewhere in its pane takes focus away: on our pane
+ * toolbar (Repair, Format…) or, in WebKit where buttons do not take focus, on the editor's own
+ * menu (Undo, Format JSON). Such a click still counts as working in the editor, so the blur is
+ * held until the user moves on: a press or focus lands outside the pane (it is then reported),
+ * or focus comes back to the editor (it is dropped). The schema panel is a separate editor and
+ * does not count as part of the pane here.
+ */
+function useEditorFocusInPane(onFocus?: () => void, onBlur?: () => void) {
+  const paneRef = useRef<HTMLElement>(null);
+  const pressedInPane = useRef(false);
+  const held = useRef(false);
+  const onBlurRef = useRef(onBlur);
+  useEffect(() => {
+    onBlurRef.current = onBlur;
+  });
+
+  const inPane = (node: unknown) =>
+    isNode(node) &&
+    !!paneRef.current?.contains(node) &&
+    !(node instanceof Element ? node : node.parentElement)?.closest('.schema-panel');
+
+  useEffect(() => {
+    const onOutsideOrInside = (e: Event) => {
+      const inside = inPane(e.target);
+      if (e.type === 'pointerdown') pressedInPane.current = inside;
+      if (inside || !held.current) return;
+      held.current = false;
+      onBlurRef.current?.();
+    };
+    document.addEventListener('pointerdown', onOutsideOrInside, true);
+    document.addEventListener('focusin', onOutsideOrInside, true);
+    return () => {
+      document.removeEventListener('pointerdown', onOutsideOrInside, true);
+      document.removeEventListener('focusin', onOutsideOrInside, true);
+    };
+  }, []);
+
+  return {
+    paneRef,
+    onFocus: () => {
+      held.current = false;
+      onFocus?.();
+    },
+    onBlur: () => {
+      const active = document.activeElement;
+      const nowhere = !active || active === document.body;
+      if (inPane(active) || (pressedInPane.current && nowhere)) held.current = true;
+      else onBlur?.();
+    },
+  };
+}
+
 export function EditorPane(props: EditorPaneProps) {
   const { side, ref, text, indent, schemaOpen, schemaText, notice, onNotice, onRun, status } =
     props;
@@ -79,6 +134,7 @@ export function EditorPane(props: EditorPaneProps) {
     }
   };
   const { isOver, dropProps } = useFileDrop((file) => void openFile(file));
+  const editorFocus = useEditorFocusInPane(props.onEditorFocus, props.onEditorBlur);
 
   const statusClass =
     status.status === 'done' && status.value.state !== 'empty'
@@ -87,6 +143,7 @@ export function EditorPane(props: EditorPaneProps) {
 
   return (
     <section
+      ref={editorFocus.paneRef}
       className="json-pane"
       data-testid={`json-${side}`}
       aria-label={`${LABEL[side]} JSON`}
@@ -167,8 +224,8 @@ export function EditorPane(props: EditorPaneProps) {
           highlights={props.highlights}
           focusPath={props.focusPath}
           showTableNote={props.showTableNote}
-          onFocus={props.onEditorFocus}
-          onBlur={props.onEditorBlur}
+          onFocus={editorFocus.onFocus}
+          onBlur={editorFocus.onBlur}
           onPaste={props.onEditorPaste}
         />
         {schemaOpen && (
