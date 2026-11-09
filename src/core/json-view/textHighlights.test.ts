@@ -25,6 +25,32 @@ describe('applyTextHighlights', () => {
     expect(lineClasses(view).join(' ')).not.toContain('jt-');
     view.destroy();
   });
+
+  it('recomputes against the new document when the content is replaced', () => {
+    const view = new EditorView({
+      state: EditorState.create({ doc: text }),
+      parent: document.body,
+    });
+    applyTextHighlights(view, { highlights: new Map([['/a', 'changed']]), focusPointer: null });
+    const next = '{\n  "z": 0,\n  "a": 5\n}';
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } });
+    const classes = lineClasses(view);
+    expect(classes[1]).not.toContain('jt-hl');
+    expect(classes[2]).toContain('jt-hl--changed');
+    view.destroy();
+  });
+
+  it('does nothing when there are no highlights and no focus', () => {
+    const view = new EditorView({
+      state: EditorState.create({ doc: text }),
+      parent: document.body,
+    });
+    const before = view.state;
+    applyTextHighlights(view, { highlights: undefined, focusPointer: null });
+    applyTextHighlights(view, { highlights: new Map(), focusPointer: null });
+    expect(view.state).toBe(before);
+    view.destroy();
+  });
 });
 
 describe('lineSpanOfPointer', () => {

@@ -184,7 +184,7 @@ export function JsonEditorView({
     editorRef.current?.updateProps({ onClassName: (path) => classNameFor(path) });
     const view = textView();
     if (view) paintText(view);
-  }, [highlights, focusPath, value, textView, paintText, classNameFor]);
+  }, [highlights, focusPath, textView, paintText, classNameFor]);
 
   useEffect(() => {
     editorRef.current?.updateProps({ validator });

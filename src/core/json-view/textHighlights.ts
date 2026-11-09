@@ -1,6 +1,6 @@
-import { RangeSetBuilder, StateEffect, StateField } from '@codemirror/state';
+import { RangeSetBuilder, StateEffect, StateField, type Text } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
-import { lineRangesFor, lineSpanOfPointer, type PathHighlights } from './highlights';
+import { highlightSpans, type PathHighlights } from './highlights';
 
 export interface TextHighlightInput {
   highlights: PathHighlights | undefined;
@@ -8,50 +8,66 @@ export interface TextHighlightInput {
   focusPointer: string | null;
 }
 
-const replace = StateEffect.define<DecorationSet>();
+interface FieldValue {
+  input: TextHighlightInput;
+  decorations: DecorationSet;
+}
 
-function build(view: EditorView, input: TextHighlightInput): DecorationSet {
-  const { doc } = view.state;
-  const text = doc.toString();
+const setInput = StateEffect.define<TextHighlightInput>();
+
+const isEmpty = (input: TextHighlightInput) =>
+  !input.highlights?.size && input.focusPointer === null;
+
+function build(doc: Text, input: TextHighlightInput): DecorationSet {
+  if (isEmpty(input)) return Decoration.none;
+  const { ranges, focus } = highlightSpans(doc.toString(), input.highlights, input.focusPointer);
   const marks: { line: number; cls: string }[] = [];
-  if (input.highlights?.size) {
-    for (const r of lineRangesFor(text, input.highlights)) {
-      for (let l = r.fromLine; l <= Math.min(r.toLine, doc.lines); l++) {
-        marks.push({ line: l, cls: `jt-hl--${r.kind}` });
-      }
+  for (const r of ranges) {
+    for (let l = r.fromLine; l <= Math.min(r.toLine, doc.lines); l++) {
+      marks.push({ line: l, cls: `jt-hl--${r.kind}` });
     }
   }
-  if (input.focusPointer !== null) {
-    const span = lineSpanOfPointer(text, input.focusPointer);
-    if (span) {
-      for (let l = span.fromLine; l <= Math.min(span.toLine, doc.lines); l++) {
-        marks.push({ line: l, cls: 'jt-focus' });
-      }
+  if (focus) {
+    for (let l = focus.fromLine; l <= Math.min(focus.toLine, doc.lines); l++) {
+      marks.push({ line: l, cls: 'jt-focus' });
     }
   }
   marks.sort((a, b) => a.line - b.line);
   const builder = new RangeSetBuilder<Decoration>();
   for (const m of marks) {
-    builder.add(doc.line(m.line).from, doc.line(m.line).from, Decoration.line({ class: m.cls }));
+    const from = doc.line(m.line).from;
+    builder.add(from, from, Decoration.line({ class: m.cls }));
   }
   return builder.finish();
 }
 
-const field = StateField.define<DecorationSet>({
-  create: () => Decoration.none,
+const field = StateField.define<FieldValue>({
+  create: () => ({
+    input: { highlights: undefined, focusPointer: null },
+    decorations: Decoration.none,
+  }),
   update(value, tr) {
-    for (const e of tr.effects) if (e.is(replace)) return e.value;
-    // Between pushes, keep decorations attached to their lines while the user types.
-    return tr.docChanged ? value.map(tr.changes) : value;
+    let input = value.input;
+    let changed = tr.docChanged;
+    for (const e of tr.effects) {
+      if (e.is(setInput)) {
+        input = e.value;
+        changed = true;
+      }
+    }
+    // Rebuild against the new document, so externally replaced content never leaves stale lines.
+    return changed ? { input, decorations: build(tr.state.doc, input) } : value;
   },
-  provide: (f) => EditorView.decorations.from(f),
+  provide: (f) => EditorView.decorations.from(f, (v) => v.decorations),
 });
 
-/** Attach (once) and refresh the highlight decorations on a CodeMirror view. */
+/** Attach (once, and only when needed) and refresh the highlight decorations on a CodeMirror view. */
 export function applyTextHighlights(view: EditorView, input: TextHighlightInput): void {
-  if (view.state.field(field, false) === undefined) {
-    view.dispatch({ effects: StateEffect.appendConfig.of(field) });
-  }
-  const decorations = build(view, input);
-  view.dispatch({ effects: replace.of(decorations) });
+  const attached = view.state.field(field, false) !== undefined;
+  if (!attached && isEmpty(input)) return;
+  view.dispatch({
+    effects: attached
+      ? [setInput.of(input)]
+      : [StateEffect.appendConfig.of(field), setInput.of(input)],
+  });
 }
