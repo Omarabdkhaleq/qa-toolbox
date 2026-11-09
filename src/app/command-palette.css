@@ -1,29 +1,23 @@
 .command-button {
   position: fixed;
-  right: 16px;
-  bottom: calc(var(--drawer-height, 0px) + 16px);
+  right: var(--floating-button-inset);
+  bottom: calc(var(--drawer-height, 0px) + var(--floating-button-inset));
   z-index: 50;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 44px;
-  min-width: 44px;
+  height: var(--floating-button-size);
+  min-width: var(--floating-button-size);
   padding: 0 10px;
   color: var(--fg);
   background: var(--bg-subtle);
   border: 1px solid var(--fg-muted);
-  border-radius: 22px;
+  border-radius: calc(var(--floating-button-size) / 2);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 .command-button:hover:not(:disabled) {
   border-color: var(--accent);
-}
-@media (min-width: 1200px) {
-  .command-button {
-    right: 24px;
-    bottom: calc(var(--drawer-height, 0px) + 24px);
-  }
 }
 .key-chip {
   font: 11px/1 var(--font-ui);

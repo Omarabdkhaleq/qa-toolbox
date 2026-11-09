@@ -108,3 +108,61 @@ test('clicking a non-focusable part of the palette keeps Escape and Tab working'
   await page.keyboard.press('Escape');
   await expect(palette(page)).toHaveCount(0);
 });
+
+type Box = { x: number; y: number; width: number; height: number };
+const overlaps = (a: Box, b: Box) =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+for (const size of [
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+]) {
+  test(`at ${size.width}×${size.height} the button covers no editor, scrollbar or status line, drawer closed or open`, async ({
+    page,
+  }) => {
+    await pretend(page, 'Win32');
+    await page.setViewportSize(size);
+    await page.goto('/#/tools/json');
+    const left = page.getByTestId('json-editor-left');
+    const right = page.getByTestId('json-editor-right');
+    await expect(right.locator('.cm-content')).toBeVisible();
+    const long = JSON.stringify(
+      Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`k${i}`, i])),
+    );
+    await setCodeMirrorText(left, long);
+    await setCodeMirrorText(right, long.replace('"k199":199', '"k199":-1'));
+    const covered = async () => {
+      const b = (await button(page).boundingBox())!;
+      const hits: string[] = [];
+      for (const testId of [
+        'json-editor-right',
+        'status-right',
+        'json-editor-left',
+        'status-left',
+      ]) {
+        const box = await page.getByTestId(testId).boundingBox();
+        if (box && overlaps(b, box)) hits.push(testId);
+      }
+      return hits;
+    };
+    expect(await covered()).toEqual([]);
+
+    const menu = page.getByRole('group', { name: 'Compare controls' });
+    await expect(menu.getByRole('checkbox', { name: 'Compare' })).toBeEnabled();
+    await menu.getByRole('checkbox', { name: 'Compare' }).check();
+    await menu.getByRole('button', { name: /^Changes \(/ }).click();
+    const drawer = page.getByRole('region', { name: 'Changes' });
+    await expect(drawer).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.style.getPropertyValue('--drawer-height')),
+      )
+      .not.toBe('');
+    await expect.poll(covered).toEqual([]);
+    const b = (await button(page).boundingBox())!;
+    expect(overlaps(b, (await drawer.boundingBox())!)).toBe(false);
+    expect(
+      overlaps(b, (await drawer.getByRole('button', { name: 'Close changes' }).boundingBox())!),
+    ).toBe(false);
+  });
+}

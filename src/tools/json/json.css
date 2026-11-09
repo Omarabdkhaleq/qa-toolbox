@@ -4,6 +4,12 @@
   gap: 8px;
   flex: 1;
   min-height: 0;
+  /* Room for the app's floating command button, which sits at the bottom right (above the
+     Changes drawer when it is open), so it never covers an editor, its scrollbar or a status
+     line. The tool already has 12px of padding below it; 4px more keeps a small gap. */
+  margin-bottom: calc(
+    var(--floating-button-size, 44px) + var(--floating-button-inset, 16px) - 12px + 4px
+  );
 }
 .json-pane[hidden] {
   display: none;

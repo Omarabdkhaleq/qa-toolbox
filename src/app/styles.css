@@ -25,6 +25,14 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius: 6px;
   --sidebar-width: 220px;
+  /* Floating command button: size and inset from the bottom-right corner (or the drawer). */
+  --floating-button-size: 44px;
+  --floating-button-inset: 16px;
+}
+@media (min-width: 1200px) {
+  :root {
+    --floating-button-inset: 24px;
+  }
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
