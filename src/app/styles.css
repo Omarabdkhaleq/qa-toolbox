@@ -16,6 +16,11 @@
   --removed: #c62828;
   --changed: #b26a00;
   --moved: #6a1b9a;
+  --hl-removed: rgba(198, 40, 40, 0.14);
+  --hl-added: rgba(46, 125, 50, 0.16);
+  --hl-changed: rgba(255, 193, 7, 0.22);
+  --hl-moved: rgba(106, 27, 154, 0.14);
+  --hl-ancestor: rgba(92, 99, 112, 0.1);
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius: 6px;
@@ -38,6 +43,11 @@
   --removed: #ef5350;
   --changed: #ffb74d;
   --moved: #ba68c8;
+  --hl-removed: rgba(239, 83, 80, 0.2);
+  --hl-added: rgba(102, 187, 106, 0.18);
+  --hl-changed: rgba(255, 183, 77, 0.2);
+  --hl-moved: rgba(186, 104, 200, 0.2);
+  --hl-ancestor: rgba(154, 162, 173, 0.12);
 }
 * {
   box-sizing: border-box;
