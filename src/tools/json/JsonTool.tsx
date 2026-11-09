@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCommandsOs, useRegisterCommands } from '../../core/commands/CommandsContext';
+import { formatShortcut } from '../../core/commands/shortcuts';
+import { buildJsonCommands, STEP_NEXT, STEP_PREV } from './commands';
 import { focusLabel, stepFocus, type FocusStep } from '../../core/diff/focus';
 import type { Change } from '../../core/diff/structural';
 import { describeParseError } from '../../core/formats/errors';
@@ -338,6 +341,20 @@ export default function JsonTool() {
     stepChange,
     focusChange,
   };
+  const os = useCommandsOs();
+  useRegisterCommands(
+    buildJsonCommands(
+      {
+        compareOn,
+        compareActive,
+        compareReason,
+        changeCount: changes.length,
+        split,
+      },
+      { ...actions, setSplit, resetSplit },
+      os,
+    ),
+  );
   const truncationNote = highlights?.truncated
     ? `Highlighting the first ${MAX_HIGHLIGHTED_CHANGES.toLocaleString('en-US')} of ${highlights.total.toLocaleString('en-US')} changes`
     : null;
@@ -427,6 +444,10 @@ export default function JsonTool() {
           }}
           onToggleCompare={actions.toggleCompare}
           onStep={actions.stepChange}
+          stepHints={{
+            next: formatShortcut(STEP_NEXT, os),
+            prev: formatShortcut(STEP_PREV, os),
+          }}
           onOpenChanges={actions.openChanges}
           changesButtonRef={changesButton}
           compareBoxRef={compareBox}

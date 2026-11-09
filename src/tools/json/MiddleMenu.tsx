@@ -25,6 +25,7 @@ export function MiddleMenu({
   compare,
   onToggleCompare,
   onStep,
+  stepHints,
   onOpenChanges,
   changesButtonRef,
   compareBoxRef,
@@ -37,6 +38,8 @@ export function MiddleMenu({
   compare: CompareControls;
   onToggleCompare: () => void;
   onStep: (step: FocusStep) => void;
+  /** Shortcut labels appended to the step buttons' tooltips. */
+  stepHints?: { next: string; prev: string };
   onOpenChanges: () => void;
   changesButtonRef: Ref<HTMLButtonElement>;
   compareBoxRef?: Ref<HTMLInputElement>;
@@ -72,7 +75,7 @@ export function MiddleMenu({
             <button
               type="button"
               aria-label="Previous change"
-              title="Previous change"
+              title={stepHints ? `Previous change (${stepHints.prev})` : 'Previous change'}
               disabled={!compare.canStep}
               onClick={() => onStep('prev')}
             >
@@ -81,7 +84,7 @@ export function MiddleMenu({
             <button
               type="button"
               aria-label="Next change"
-              title="Next change"
+              title={stepHints ? `Next change (${stepHints.next})` : 'Next change'}
               disabled={!compare.canStep}
               onClick={() => onStep('next')}
             >

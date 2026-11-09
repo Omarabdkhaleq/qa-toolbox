@@ -794,3 +794,104 @@ test('with the drawer open, a focused change on the last line stays above the dr
       .toBeLessThanOrEqual(drawerBox.y);
   }
 });
+
+// Commands, Ctrl+Alt+↓/↑ and the keyboard reference (Task 10).
+
+const pretendOs = (page: Page, platform: 'MacIntel' | 'Win32') =>
+  page.addInitScript((p) => {
+    Object.defineProperty(navigator, 'platform', { get: () => p });
+    Object.defineProperty(navigator, 'userAgentData', { get: () => undefined });
+  }, platform);
+const palette = (page: Page) => page.getByRole('dialog', { name: 'Command palette' });
+const paletteRow = (page: Page, name: string) =>
+  palette(page).getByRole('option').filter({ hasText: name });
+const openPalette = async (page: Page, query: string) => {
+  await page.getByRole('button', { name: 'Commands and shortcuts' }).click();
+  await palette(page).getByRole('combobox').fill(query);
+};
+
+test('Ctrl+Alt+ArrowDown steps to the next change from inside an editor without adding a cursor', async ({
+  page,
+}) => {
+  await pretendOs(page, 'Win32');
+  await page.reload();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await compare(page, '{"a":1,"b":2}', '{"a":9,"b":8}');
+  await expect(summary(page)).toContainText('2 changed');
+  await editor(page).locator('.cm-content').click();
+  await page.keyboard.press('Control+Alt+ArrowDown');
+  await expect(position(page)).toHaveText('Change 1 of 2');
+  await page.keyboard.press('Control+Alt+ArrowDown');
+  await expect(position(page)).toHaveText('Change 2 of 2');
+  await page.keyboard.press('Control+Alt+ArrowUp');
+  await expect(position(page)).toHaveText('Change 1 of 2');
+  await expect(editor(page).locator('.cm-cursor')).toHaveCount(1);
+});
+
+test('Ctrl+Alt+ArrowDown is left to the editor while Compare is off', async ({ page }) => {
+  await pretendOs(page, 'Win32');
+  await page.reload();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await fillBoth(page, '{"a":1}\n{"a":1}', '{"a":2}');
+  await editor(page).locator('.cm-content').click();
+  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('Control+Alt+ArrowDown');
+  await expect(position(page)).toHaveCount(0);
+  await expect(editor(page).locator('.cm-cursor')).toHaveCount(2);
+  await expect(compareBox(page)).not.toBeChecked();
+});
+
+test('the palette lists Next change with its shortcut, per OS', async ({ page }) => {
+  await pretendOs(page, 'Win32');
+  await page.reload();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await openPalette(page, 'next change');
+  await expect(paletteRow(page, 'Next change')).toContainText('Ctrl+Alt+↓');
+  await expect(paletteRow(page, 'Next change')).toContainText('Turn on Compare first');
+});
+
+test('the palette lists Next change as ⌃⌥↓ on macOS', async ({ page }) => {
+  await pretendOs(page, 'MacIntel');
+  await page.reload();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await openPalette(page, 'next change');
+  await expect(paletteRow(page, 'Next change')).toContainText('⌃⌥↓');
+});
+
+test('running Format left from the palette by mouse formats the left editor', async ({ page }) => {
+  await setCodeMirrorText(editor(page), '{"b":1,"a":2}');
+  await openPalette(page, 'format left');
+  await paletteRow(page, 'Format left').click();
+  await expect(palette(page)).toHaveCount(0);
+  await expect.poll(() => readCodeMirrorText(editor(page))).toBe('{\n  "b": 1,\n  "a": 2\n}');
+  expect((await readCodeMirrorText(editor(page, 'right'))).trim()).toBe('');
+});
+
+test('a palette command run with Enter changes the split', async ({ page }) => {
+  await openPalette(page, 'close left');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('json-left')).toBeHidden();
+});
+
+test('the keyboard reference lists split and editor keys as read-only rows', async ({ page }) => {
+  await pretendOs(page, 'Win32');
+  await page.reload();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await openPalette(page, 'undo');
+  await expect(paletteRow(page, 'Undo')).toContainText('Ctrl+Z');
+  await expect(paletteRow(page, 'Undo')).toContainText('Keyboard reference');
+  await palette(page).getByRole('combobox').fill('add cursor below');
+  await expect(paletteRow(page, 'Add cursor below')).toContainText('Ctrl+Alt+↓');
+  await expect(paletteRow(page, 'Add cursor below')).toContainText('Ubuntu');
+  await palette(page).getByRole('combobox').fill('split handle');
+  await expect(palette(page).getByRole('option')).toHaveCount(5);
+});
+
+test('the Next change button tooltip contains the shortcut', async ({ page }) => {
+  await pretendOs(page, 'Win32');
+  await page.reload();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await compare(page, '{"a":1}', '{"a":2}');
+  await expect(nextChange(page)).toHaveAttribute('title', 'Next change (Ctrl+Alt+↓)');
+  await expect(prevChange(page)).toHaveAttribute('title', 'Previous change (Ctrl+Alt+↑)');
+});
