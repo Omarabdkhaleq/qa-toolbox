@@ -268,6 +268,7 @@ SemVer + Conventional Commits.
 | v1.5 | XML (+ CSV) adapters + **Convert tool** | First milestone with a second format |
 | v1.6 | YAML (+ TOML) adapters | Plug into Convert / Editor / Compare via the adapter layer |
 | Backlog | **JSON with comments**: `//` to end of line; `/* … */` (incl. `/** */`), first `*/` ends it, no nesting; markers inside strings are text; ignored by validation and compare; removed by Format / Minify / Sort keys | Choose own scanner vs Microsoft `jsonc-parser` then; main risk: comment markers inside strings |
+| Backlog | **JSON generator (fake data)**: generate realistic sample JSON — names, emails, dates, numbers, ids, arrays of N items — from a template or field list, fully offline | To be designed before it is scheduled; related to v1.2 "JSON Schema → test data" (could share the value generators) |
 | Backlog | **Keyboard-shortcut conflicts**: Ctrl+Alt+↓/↑ (next/previous change) overrides the editor's add-cursor below/above on Windows/Linux and is taken by Ubuntu desktops for workspace switching | Open idea, not decided: a version run from the terminal, which might let the app own its key bindings and avoid these conflicts. To be thought through before it is scheduled. |
 
 ## 10. Risks
