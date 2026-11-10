@@ -1012,3 +1012,89 @@ test('each side’s schema panel has its own accessible name', async ({ page }) 
   await expect(page.getByRole('complementary', { name: 'Left JSON Schema' })).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Right JSON Schema' })).toBeVisible();
 });
+
+// Two grip handles, one on each side of the middle menu.
+
+const leftGrip = (page: Page) => page.getByRole('separator', { name: 'Resize editors (left)' });
+const rightGrip = (page: Page) => page.getByTestId('split-handle-right');
+const paneWidths = async (page: Page) => {
+  const l = await page.getByTestId('json-left').boundingBox();
+  const r = await page.getByTestId('json-right').boundingBox();
+  if (!l || !r) throw new Error('missing layout');
+  return { left: l.width, right: r.width };
+};
+const dragFrom = async (page: Page, startX: number, y: number, toX: number) => {
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(toX, y, { steps: 8 });
+  await page.mouse.up();
+};
+
+test('both handles are 16 px wide hit zones on either side of the menu', async ({ page }) => {
+  const menuBox = (await page.getByRole('group', { name: 'Compare controls' }).boundingBox())!;
+  const l = (await leftGrip(page).boundingBox())!;
+  const r = (await rightGrip(page).boundingBox())!;
+  expect(l.width).toBe(16);
+  expect(r.width).toBe(16);
+  expect(l.x + l.width / 2).toBeLessThan(menuBox.x + 12);
+  expect(r.x + r.width / 2).toBeGreaterThan(menuBox.x + menuBox.width - 12);
+  await expect(page.getByRole('separator')).toHaveCount(1);
+});
+
+test('dragging the right handle to 70% makes the left pane wider', async ({ page }) => {
+  const tool = (await page.locator('.json-tool').boundingBox())!;
+  const box = (await rightGrip(page).boundingBox())!;
+  await dragFrom(page, box.x + box.width / 2, box.y + box.height / 2, tool.x + tool.width * 0.7);
+  const w = await paneWidths(page);
+  expect(w.left).toBeGreaterThan(w.right);
+  await expect(leftGrip(page)).toHaveAttribute('aria-valuenow', /^(6|7)\d$/);
+});
+
+test('dragging the left handle to 30% makes the left pane narrower', async ({ page }) => {
+  const tool = (await page.locator('.json-tool').boundingBox())!;
+  const box = (await leftGrip(page).boundingBox())!;
+  await dragFrom(page, box.x + box.width / 2, box.y + box.height / 2, tool.x + tool.width * 0.3);
+  const w = await paneWidths(page);
+  expect(w.left).toBeLessThan(w.right);
+});
+
+test('a pointer-down 6 px beside the visible bar still drags', async ({ page }) => {
+  const tool = (await page.locator('.json-tool').boundingBox())!;
+  const box = (await rightGrip(page).boundingBox())!;
+  await dragFrom(
+    page,
+    box.x + box.width / 2 + 6,
+    box.y + box.height / 2,
+    tool.x + tool.width * 0.7,
+  );
+  const w = await paneWidths(page);
+  expect(w.left).toBeGreaterThan(w.right);
+});
+
+test('a right-click on a handle does not start a drag', async ({ page }) => {
+  const tool = (await page.locator('.json-tool').boundingBox())!;
+  const box = (await rightGrip(page).boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(tool.x + tool.width * 0.7, y, { steps: 6 });
+  await page.mouse.up({ button: 'right' });
+  await expect(leftGrip(page)).toHaveAttribute('aria-valuenow', '50');
+});
+
+test('double-clicking the right handle resets the split', async ({ page }) => {
+  await leftGrip(page).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(leftGrip(page)).toHaveAttribute('aria-valuenow', '55');
+  await rightGrip(page).dblclick();
+  await expect(leftGrip(page)).toHaveAttribute('aria-valuenow', '50');
+});
+
+test('the body is not text-selectable while dragging', async ({ page }) => {
+  const box = (await rightGrip(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect(page.locator('body')).toHaveClass(/is-resizing/);
+  await page.mouse.up();
+  await expect(page.locator('body')).not.toHaveClass(/is-resizing/);
+});

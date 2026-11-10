@@ -47,7 +47,8 @@ export function MiddleMenu({
   const reasonId = useId();
   return (
     <div className="json-menu" role="group" aria-label="Compare controls">
-      <SplitHandle split={split} onSplit={onSplit} onReset={onResetSplit} />
+      <SplitHandle side="left" split={split} onSplit={onSplit} onReset={onResetSplit} />
+      <SplitHandle side="right" split={split} onSplit={onSplit} onReset={onResetSplit} />
       <div className="json-menu__compare">
         <label className="json-menu__toggle">
           <input
