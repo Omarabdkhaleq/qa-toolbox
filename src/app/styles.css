@@ -98,6 +98,32 @@ body {
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
 }
+.app__header-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-color: var(--fg-muted);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.sidebar__close {
+  display: none;
+}
+.sidebar-backdrop {
+  display: none;
+}
 .app__brand {
   font-weight: 700;
   font-size: 16px;
@@ -105,6 +131,7 @@ body {
   text-decoration: none;
 }
 .sidebar {
+  grid-column: 1;
   border-right: 1px solid var(--border);
   padding: 12px 8px;
   overflow-y: auto;
@@ -139,7 +166,14 @@ body {
   background: var(--accent);
   color: var(--accent-fg);
 }
+.app--nav-closed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.app--nav-closed .sidebar {
+  display: none;
+}
 .main {
+  grid-column: 2;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -242,12 +276,51 @@ button[aria-selected='true'] {
   padding: 24px;
 }
 @media (max-width: 720px) {
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
+  .app,
+  .app--nav-closed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
   }
-  .sidebar {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+  .main {
+    grid-column: 1;
+  }
+  /* Overlay drawer: slides in from the left above the content. */
+  .sidebar,
+  .app--nav-closed .sidebar {
+    display: block;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 90;
+    width: min(280px, 85vw);
+    border-right: 1px solid var(--border);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+  .app:not(.app--nav-closed) .sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease;
+  }
+  .sidebar__close {
+    display: inline-flex;
+    margin: 0 0 8px auto;
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: rgba(0, 0, 0, 0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .app--nav-closed .sidebar,
+  .app:not(.app--nav-closed) .sidebar {
+    transition: none;
   }
 }
