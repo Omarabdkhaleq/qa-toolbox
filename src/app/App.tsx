@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CommandsProvider,
   useCommandsOs,
@@ -40,26 +40,36 @@ function Shell({ tools }: { tools: readonly ToolDefinition[] }) {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Narrow screens always start closed and ignore the stored desktop preference.
   const sidebarOpen = narrow ? drawerOpen : wideOpen;
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     if (narrow) setDrawerOpen((open) => !open);
     else {
       writeSidebarOpen(!wideOpen);
       setWideOpen(!wideOpen);
     }
-  };
+  }, [narrow, wideOpen]);
   const closeDrawer = () => setDrawerOpen(false);
 
   // Closing the drawer (any way) hands focus back to the menu button.
   const wasDrawerOpen = useRef(false);
   const drawerShown = narrow && drawerOpen;
   useEffect(() => {
-    if (wasDrawerOpen.current && !drawerShown) menuButtonRef.current?.focus();
+    // Only a drawer closed at narrow width returns focus; a resize to wide must not move it.
+    if (narrow && wasDrawerOpen.current && !drawerShown) menuButtonRef.current?.focus();
     wasDrawerOpen.current = drawerShown;
-  }, [drawerShown]);
+  }, [drawerShown, narrow]);
+  // The drawer is a narrow-only state: leaving narrow width resets it.
+  useEffect(() => {
+    if (!narrow) setDrawerOpen(false);
+  }, [narrow]);
+  const paletteOpenRef = useRef(false);
+  paletteOpenRef.current = paletteOpen;
   useEffect(() => {
     if (!drawerShown) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawerOpen(false);
+      // Escape in the palette (or anything that already handled it) must not also close the drawer.
+      if (e.key === 'Escape' && !e.defaultPrevented && !paletteOpenRef.current) {
+        setDrawerOpen(false);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -99,8 +109,7 @@ function Shell({ tools }: { tools: readonly ToolDefinition[] }) {
         },
       })),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tools, theme, setTheme, narrow, wideOpen],
+    [tools, theme, setTheme, toggleSidebar],
   );
   useRegisterCommands(appCommands);
   useShortcut(PALETTE_SHORTCUT, () => setPaletteOpen(true));

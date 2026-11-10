@@ -141,3 +141,33 @@ test.describe('narrow screens', () => {
     await expect(menuButton(page)).toBeFocused();
   });
 });
+
+test.describe('drawer edge cases', () => {
+  test('resizing from narrow-open to wide does not move focus to the menu button', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 600, height: 800 });
+    await page.goto('/#/tools/json');
+    await expect(page.getByTestId('json-editor-left').locator('.cm-content')).toBeVisible();
+    await menuButton(page).click();
+    await expect(jsonLink(page)).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(backdrop(page)).toHaveCount(0);
+    await expect(menuButton(page)).not.toBeFocused();
+  });
+
+  test('Escape in the palette opened over the drawer closes only the palette', async ({ page }) => {
+    await pretend(page, 'Win32');
+    await page.setViewportSize({ width: 600, height: 800 });
+    await page.goto('/#/tools/json');
+    await expect(page.getByTestId('json-editor-left').locator('.cm-content')).toBeVisible();
+    await menuButton(page).click();
+    await expect(sidebar(page)).toBeVisible();
+    await page.keyboard.press('Control+K');
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(palette).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(palette).toHaveCount(0);
+    await expect(sidebar(page)).toBeVisible();
+  });
+});

@@ -1015,7 +1015,7 @@ test('each side’s schema panel has its own accessible name', async ({ page }) 
 
 // Two grip handles, one on each side of the middle menu.
 
-const leftGrip = (page: Page) => page.getByRole('separator', { name: 'Resize editors (left)' });
+const leftGrip = (page: Page) => page.getByRole('separator', { name: 'Resize editors' });
 const rightGrip = (page: Page) => page.getByTestId('split-handle-right');
 const paneWidths = async (page: Page) => {
   const l = await page.getByTestId('json-left').boundingBox();

@@ -78,7 +78,7 @@ export function SplitHandle({
     <div
       className="split-handle split-handle--left"
       role="separator"
-      aria-label="Resize editors (left)"
+      aria-label="Resize editors"
       aria-orientation="vertical"
       aria-valuemin={0}
       aria-valuemax={100}
