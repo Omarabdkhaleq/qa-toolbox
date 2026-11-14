@@ -175,7 +175,37 @@ export function JsonEditorView({
       else applyFoldCounts(view);
     });
     observer.observe(target, { childList: true, subtree: true });
+    // vanilla-jsoneditor reports text-mode edits on a delay and flushes a pending edit when the
+    // text editor loses focus. If that flush lands in the same gesture as a mode switch (pressing a
+    // mode button moves focus at mousedown, then the click switches), the library gets stuck: no
+    // further mode switch works. So in text mode: keep focus where it is on mousedown, and on click
+    // flush the pending edit first (blur), then replay the click on the next tick.
+    const modeButton = (event: Event) =>
+      modeRef.current === 'text'
+        ? (event.target as Element | null)?.closest?.<HTMLElement>('.jse-group-button')
+        : null;
+    let replaying = false;
+    const keepFocusOnMouseDown = (event: MouseEvent) => {
+      if (modeButton(event)) event.preventDefault();
+    };
+    const flushThenSwitch = (event: MouseEvent) => {
+      const button = replaying ? null : modeButton(event);
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.closest('.cm-editor')) active.blur();
+      setTimeout(() => {
+        replaying = true;
+        button.click();
+        replaying = false;
+      });
+    };
+    target.addEventListener('mousedown', keepFocusOnMouseDown, true);
+    target.addEventListener('click', flushThenSwitch, true);
     return () => {
+      target.removeEventListener('mousedown', keepFocusOnMouseDown, true);
+      target.removeEventListener('click', flushThenSwitch, true);
       observer.disconnect();
       editorRef.current = null;
       void editor.destroy().then(() => target.remove());

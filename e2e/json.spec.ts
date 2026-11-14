@@ -1202,3 +1202,23 @@ test('Swap sides swaps the titles; Copy leaves them alone', async ({ page }) => 
   await expect(title(page)).toHaveValue('second');
   await expect(title(page, 'right')).toHaveValue('first');
 });
+
+// Regression: switching view while the cursor is still in the text editor used to leave the
+// editor stuck in tree/table view (no further view switch worked).
+
+for (const view of ['tree', 'table'] as const) {
+  test(`switching to ${view} with the cursor in the text and back to text works`, async ({
+    page,
+  }) => {
+    await setCodeMirrorText(editor(page), '[{"a":1},{"a":2}]');
+    await editor(page)
+      .getByRole('button', { name: new RegExp(`^${view}$`, 'i') })
+      .click();
+    await expect(editor(page).locator(`.jse-${view}-mode`)).toBeVisible();
+    await editor(page)
+      .getByRole('button', { name: /^text$/i })
+      .click();
+    await expect(editor(page).locator('.cm-content')).toBeVisible();
+    await expect.poll(() => readCodeMirrorText(editor(page))).toContain('{"a":2}');
+  });
+}
