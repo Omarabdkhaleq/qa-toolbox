@@ -18,6 +18,7 @@ import './json-view.css';
 import { QUERY_LANGUAGES } from './queryLanguages';
 import type { JsonValidator } from './schemaValidator';
 import { applyTextHighlights } from './textHighlights';
+import { applyFoldCounts } from './foldCounts';
 
 export type JsonEditorMode = 'text' | 'tree' | 'table';
 
@@ -99,6 +100,7 @@ export function JsonEditorView({
   }, []);
 
   const paintText = useCallback((view: EditorView) => {
+    applyFoldCounts(view);
     const { highlights: h, focusPath: f } = hl.current;
     applyTextHighlights(view, { highlights: h, focusPointer: f ? toJsonPointer(f) : null });
     appliedViews.current.add(view);
@@ -164,9 +166,13 @@ export function JsonEditorView({
     const editor = createJSONEditor({ target, props });
     editorRef.current = editor;
     // A mode switch back to text builds a new CodeMirror view; re-attach the decorations to it.
+    // The library can also replace a view's state on outside content changes, dropping the
+    // fold-count extension; applyFoldCounts is a cheap no-op when the current state has it.
     const observer = new MutationObserver(() => {
       const view = textView();
-      if (view && !appliedViews.current.has(view)) paintText(view);
+      if (!view) return;
+      if (!appliedViews.current.has(view)) paintText(view);
+      else applyFoldCounts(view);
     });
     observer.observe(target, { childList: true, subtree: true });
     return () => {

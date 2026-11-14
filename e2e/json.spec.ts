@@ -1098,3 +1098,61 @@ test('the body is not text-selectable while dragging', async ({ page }) => {
   await page.mouse.up();
   await expect(page.locator('body')).not.toHaveClass(/is-resizing/);
 });
+
+// Collapsed arrays show how many items they hold (text view).
+
+// Clicks the fold arrow on the editor line containing `text` (the fold gutter only renders
+// elements for foldable lines, so it is matched by vertical position, not by index).
+async function foldLine(page: Page, text: string, side: Side = 'left') {
+  const line = await editor(page, side)
+    .locator('.cm-line', { hasText: text })
+    .first()
+    .boundingBox();
+  const markers = editor(page, side).locator('.cm-foldGutter .cm-gutterElement');
+  for (let i = 0; i < (await markers.count()); i++) {
+    const box = await markers.nth(i).boundingBox();
+    if (box && line && Math.abs(box.y + box.height / 2 - (line.y + line.height / 2)) < 4) {
+      await markers.nth(i).locator('span').click();
+      return;
+    }
+  }
+  throw new Error(`No fold marker on the line with ${text}`);
+}
+
+test('a collapsed array in text view shows its item count', async ({ page }) => {
+  await setCodeMirrorText(
+    editor(page),
+    '{\n  "list": [\n    1,\n    {"a": [2, 3]},\n    "x"\n  ],\n  "obj": {\n    "k": 1\n  }\n}',
+  );
+  await foldLine(page, '"list"');
+  await expect(editor(page).locator('.cm-foldPlaceholder')).toHaveText('… 3 items');
+  await expect(editor(page).locator('.cm-foldPlaceholder')).toHaveAttribute(
+    'aria-label',
+    'Folded array, 3 items',
+  );
+  await editor(page).locator('.cm-foldPlaceholder').click();
+  await expect(editor(page).locator('.cm-foldPlaceholder')).toHaveCount(0);
+});
+
+test('a collapsed object keeps the plain marker and the count survives a tree round trip', async ({
+  page,
+}) => {
+  await setCodeMirrorText(
+    editor(page),
+    '{\n  "obj": {\n    "k": 1\n  },\n  "one": [\n    true\n  ]\n}',
+  );
+  // Move focus out of the editor first: switching tree → text while the text editor still had
+  // focus when entering tree view is a separate known bug, not what this test covers.
+  await status(page).click();
+  await editor(page)
+    .getByRole('button', { name: /^tree$/i })
+    .click();
+  await expect(editor(page).getByRole('treeitem', { name: /^one : \[/ })).toBeVisible();
+  await editor(page)
+    .getByRole('button', { name: /^text$/i })
+    .click();
+  await expect(editor(page).locator('.cm-content')).toBeVisible();
+  await foldLine(page, '"one"');
+  await foldLine(page, '"obj"');
+  await expect(editor(page).locator('.cm-foldPlaceholder')).toHaveText(['…', '… 1 item']);
+});
