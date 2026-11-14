@@ -14,6 +14,7 @@ import { useDebouncedValue } from '../../core/react/useDebouncedValue';
 import type { PathSegment } from '../../core/diff/paths';
 import { Banner } from '../../core/ui/Banner';
 import {
+  downloadFilename,
   parseIndentChoice,
   statusLabel,
   type EditAction,
@@ -33,6 +34,9 @@ export interface EditorPaneProps {
   /** Collapsed by the split; stays mounted so the editor keeps its state. */
   hidden?: boolean;
   ref?: Ref<JsonEditorViewHandle>;
+  /** Editable title; names the downloaded file. Open file sets it to the file's name. */
+  title: string;
+  onTitleChange: (title: string) => void;
   text: string;
   /** Edits made in the editor (typing, tree/table edits). */
   onTextChange: (text: string) => void;
@@ -128,6 +132,7 @@ export function EditorPane(props: EditorPaneProps) {
   const openFile = async (file: File) => {
     try {
       props.onReplaceText(await readFileAsText(file));
+      props.onTitleChange(file.name);
       onNotice(null);
     } catch (err) {
       onNotice({ kind: 'error', text: messageOf(err) });
@@ -149,6 +154,15 @@ export function EditorPane(props: EditorPaneProps) {
       aria-label={`${LABEL[side]} JSON`}
       hidden={props.hidden}
     >
+      <input
+        className="pane-title"
+        type="text"
+        aria-label={`${LABEL[side]} editor title`}
+        placeholder={`${LABEL[side]}: untitled`}
+        value={props.title}
+        onChange={(e) => props.onTitleChange(e.target.value)}
+        spellCheck={false}
+      />
       <div className="toolbar" role="toolbar" aria-label={`${LABEL[side]} JSON actions`}>
         <button type="button" onClick={() => onRun('format')}>
           Format
@@ -192,7 +206,7 @@ export function EditorPane(props: EditorPaneProps) {
         </button>
         <button
           type="button"
-          onClick={() => downloadText('document.json', props.getText())}
+          onClick={() => downloadText(downloadFilename(props.title), props.getText())}
           disabled={text === ''}
         >
           Download

@@ -7,6 +7,7 @@ import {
   compareAvailability,
   compareJson,
   computeStatus,
+  downloadFilename,
   highlightsFor,
   lineOfPath,
   parseIndentChoice,
@@ -354,5 +355,22 @@ describe('highlights and targets inside arrays use each side’s own index', () 
     expect(highlightsFor([moved, added]).right.get('/l/0')).toBe('added');
     expect(highlightsFor([removed, moved]).left.get('/l/3')).toBe('removed');
     expect(highlightsFor([moved, removed]).left.get('/l/3')).toBe('removed');
+  });
+});
+
+describe('downloadFilename', () => {
+  it('falls back to document.json for an empty title', () => {
+    expect(downloadFilename('')).toBe('document.json');
+    expect(downloadFilename('   ')).toBe('document.json');
+  });
+
+  it('adds .json unless the title already ends with it', () => {
+    expect(downloadFilename('orders')).toBe('orders.json');
+    expect(downloadFilename('orders.json')).toBe('orders.json');
+    expect(downloadFilename('Orders.JSON')).toBe('Orders.JSON');
+  });
+
+  it('replaces characters that are not allowed in file names and trims spaces', () => {
+    expect(downloadFilename(' a/b\\c:d*e?f"g<h>i|j ')).toBe('a-b-c-d-e-f-g-h-i-j.json');
   });
 });

@@ -84,6 +84,8 @@ const paneStatus = (s: AsyncState<TextStatus>): AsyncState<EditorStatus> =>
 const normalizeNewlines = (text: string) => text.replace(/\r\n?/g, '\n').trim();
 
 interface SideState {
+  /** Editable title; names the downloaded file (empty → document.json). */
+  title: string;
   text: string;
   indent: IndentChoice;
   schemaOpen: boolean;
@@ -95,6 +97,7 @@ interface SideState {
 }
 
 const initialSide = (): SideState => ({
+  title: '',
   text: '',
   indent: 2,
   schemaOpen: false,
@@ -323,8 +326,8 @@ export default function JsonTool() {
       const right = sortedIfComparing('right', liveText('left'));
       dirty.current = { left: false, right: false };
       setSides((s) => ({
-        left: { ...s.left, text: left, lastChange: 'external' },
-        right: { ...s.right, text: right, lastChange: 'external' },
+        left: { ...s.left, title: s.right.title, text: left, lastChange: 'external' },
+        right: { ...s.right, title: s.left.title, text: right, lastChange: 'external' },
       }));
     },
     copy: (from: Side, to: Side) => {
@@ -391,6 +394,8 @@ export default function JsonTool() {
       side={side}
       hidden={(side === 'left' && split === 0) || (side === 'right' && split === 100)}
       ref={refs[side]}
+      title={sides[side].title}
+      onTitleChange={(title) => patch(side, { title })}
       text={sides[side].text}
       onTextChange={(text) => onEdit(side, text)}
       onReplaceText={(text) => replace(side, text)}

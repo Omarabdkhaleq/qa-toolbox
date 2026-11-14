@@ -1156,3 +1156,49 @@ test('a collapsed object keeps the plain marker and the count survives a tree ro
   await foldLine(page, '"obj"');
   await expect(editor(page).locator('.cm-foldPlaceholder')).toHaveText(['…', '… 1 item']);
 });
+
+// Editable editor titles name the downloaded file.
+
+const title = (page: Page, side: Side = 'left') =>
+  page.getByRole('textbox', { name: `${Cap(side)} editor title` });
+
+test('each editor has an empty title with a placeholder', async ({ page }) => {
+  await expect(title(page)).toHaveValue('');
+  await expect(title(page)).toHaveAttribute('placeholder', 'Left: untitled');
+  await expect(title(page, 'right')).toHaveAttribute('placeholder', 'Right: untitled');
+});
+
+test('downloads use the editor title as the file name', async ({ page }) => {
+  await setCodeMirrorText(editor(page, 'right'), '[1]');
+  await title(page, 'right').fill('orders/2024');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    action(page, 'Download', 'right').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('orders-2024.json');
+});
+
+test('opening a file sets the title to its file name', async ({ page }) => {
+  await page.getByTestId('file-input-left').setInputFiles('fixtures/bom.json');
+  await expect(status(page)).toContainText('Valid JSON');
+  await expect(title(page)).toHaveValue('bom.json');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    action(page, 'Download').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('bom.json');
+});
+
+test('Swap sides swaps the titles; Copy leaves them alone', async ({ page }) => {
+  await setCodeMirrorText(editor(page), '{"a":1}');
+  await setCodeMirrorText(editor(page, 'right'), '{"b":2}');
+  await title(page).fill('first');
+  await title(page, 'right').fill('second');
+  const menu = page.getByRole('group', { name: 'Compare controls' });
+  await menu.getByRole('button', { name: 'Swap sides', exact: true }).click();
+  await expect(title(page)).toHaveValue('second');
+  await expect(title(page, 'right')).toHaveValue('first');
+  await menu.getByRole('button', { name: 'Copy left to right', exact: true }).click();
+  await expect(title(page)).toHaveValue('second');
+  await expect(title(page, 'right')).toHaveValue('first');
+});

@@ -294,3 +294,12 @@ export function splitFromKey(
       return 50;
   }
 }
+
+const FILE_NAME_FORBIDDEN = /[/\\:*?"<>|]/g;
+
+/** The download file name for an editor title: untitled → document.json, `.json` added if missing. */
+export function downloadFilename(title: string): string {
+  const name = title.trim().replace(FILE_NAME_FORBIDDEN, '-');
+  if (name === '') return 'document.json';
+  return /\.json$/i.test(name) ? name : `${name}.json`;
+}
