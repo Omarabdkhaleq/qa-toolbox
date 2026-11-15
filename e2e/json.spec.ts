@@ -1141,9 +1141,6 @@ test('a collapsed object keeps the plain marker and the count survives a tree ro
     editor(page),
     '{\n  "obj": {\n    "k": 1\n  },\n  "one": [\n    true\n  ]\n}',
   );
-  // Move focus out of the editor first: switching tree → text while the text editor still had
-  // focus when entering tree view is a separate known bug, not what this test covers.
-  await status(page).click();
   await editor(page)
     .getByRole('button', { name: /^tree$/i })
     .click();
