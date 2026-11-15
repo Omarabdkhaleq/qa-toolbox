@@ -1,0 +1,94 @@
+.json-editor-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.json-editor-view__target {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+/* The editor's own value colours fail AA on white and on the highlight tints; use the theme's. */
+.json-editor-view:not(.jse-theme-dark) {
+  --jse-background-color: var(--bg-editor);
+  --jse-key-color: var(--json-key);
+  --jse-value-color-string: var(--json-string);
+  --jse-value-color-url: var(--json-string);
+  --jse-value-color-number: var(--json-number);
+  --jse-value-color-boolean: var(--json-boolean);
+  --jse-value-color-null: var(--json-null);
+}
+.json-editor-view.jse-theme-dark {
+  --jse-background-color: var(--bg-editor);
+  --jse-key-color: var(--json-key);
+  --jse-value-color-string: var(--json-string);
+  --jse-value-color-url: var(--json-string);
+  --jse-value-color-number: var(--json-number);
+  --jse-value-color-boolean: var(--json-boolean);
+  --jse-value-color-null: var(--json-null);
+}
+
+.json-editor-view-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.json-editor-view__note {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+/* Compare highlights. Text view paints whole lines, tree view paints nodes. */
+.cm-line.jt-hl--removed,
+.jt-hl--removed {
+  background-color: var(--hl-removed);
+  box-shadow: inset 3px 0 0 var(--removed);
+}
+.cm-line.jt-hl--added,
+.jt-hl--added {
+  background-color: var(--hl-added);
+  box-shadow: inset 3px 0 0 var(--added);
+}
+.cm-line.jt-hl--changed,
+.jt-hl--changed {
+  background-color: var(--hl-changed);
+  box-shadow: inset 3px 0 0 var(--changed);
+}
+.cm-line.jt-hl--moved,
+.jt-hl--moved {
+  background-color: var(--hl-moved);
+  box-shadow: inset 3px 0 0 var(--moved);
+}
+.cm-line.jt-hl--ancestor,
+.jt-hl--ancestor {
+  background-color: var(--hl-ancestor);
+}
+.cm-line.jt-focus,
+.jt-focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  animation: jt-focus-pulse 600ms ease-out 1;
+}
+@keyframes jt-focus-pulse {
+  from {
+    outline-offset: 2px;
+    outline-color: transparent;
+  }
+  to {
+    outline-offset: -2px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-line.jt-focus,
+  .jt-focus {
+    animation: none;
+  }
+}
