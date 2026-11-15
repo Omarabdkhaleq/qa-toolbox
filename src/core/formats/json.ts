@@ -16,17 +16,44 @@ export interface JsonStringifyOptions {
 }
 export type RepairResult = { ok: true; text: string } | { ok: false; error: ParseError };
 
-/** lossless-json keeps numbers as LosslessNumber so big integers and long decimals survive. */
-export const losslessJsonParser = { parse: losslessParse, stringify: losslessStringify };
+export const COMMENT_ERROR = "Comments aren't supported yet. Click Repair to remove them.";
 
 // lossless-json and jsonrepair both end their messages with "at position N" (0-based).
 const POSITION = /position (\d+)/;
 
-function toParseError(source: string, err: unknown): ParseError {
+/** The parser's own message, or COMMENT_ERROR when the failing offset starts `//` or `/*`. */
+function describeError(source: string, err: unknown): { message: string; offset?: number } {
   const message = err instanceof Error ? err.message : String(err);
   const match = POSITION.exec(message);
-  return match ? { message, ...offsetToLineColumn(source, Number(match[1])) } : { message };
+  if (!match) return { message };
+  const offset = Number(match[1]);
+  const isComment =
+    source[offset] === '/' && (source[offset + 1] === '/' || source[offset + 1] === '*');
+  return { message: isComment ? `${COMMENT_ERROR} at position ${offset}` : message, offset };
 }
+
+function toParseError(source: string, err: unknown): ParseError {
+  const { message, offset } = describeError(source, err);
+  if (offset === undefined) return { message };
+  const isComment = message.startsWith(COMMENT_ERROR);
+  return {
+    message: isComment ? COMMENT_ERROR : message,
+    ...offsetToLineColumn(source, offset),
+  };
+}
+
+/** lossless-json keeps numbers as LosslessNumber so big integers and long decimals survive. */
+export const losslessJsonParser = {
+  parse(text: string, ...rest: unknown[]): unknown {
+    try {
+      return (losslessParse as (t: string, ...r: unknown[]) => unknown)(text, ...rest);
+    } catch (err) {
+      const { message } = describeError(text, err);
+      throw err instanceof Error && err.message === message ? err : new SyntaxError(message);
+    }
+  },
+  stringify: losslessStringify,
+};
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (

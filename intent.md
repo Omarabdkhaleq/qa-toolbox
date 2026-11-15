@@ -46,7 +46,7 @@ The author, plus anyone they share the Docker image (or demo link) with. Single-
 - In-app tabs (deferred to v1.4).
 - JavaScript/Lodash query languages (require `eval`; conflict with CSP — §6.3).
 - "Ignore array order" in Compare (ambiguous for arrays of objects).
-- Command palette (added in v1.1 once there are enough tools).
+- Comments in JSON (`//`, `/* */`) — reported as unsupported with a pointer to Repair; support is on the roadmap backlog.
 
 ## 2. Architecture
 
@@ -62,7 +62,7 @@ The author, plus anyone they share the Docker image (or demo link) with. Single-
 ├────────────────────────────────────────────────────────────────────┤
 │  Tool registry: ToolDefinition[]                                   │
 ├──────────────────────────┬─────────────────────────────────────────┤
-│ tools/json-editor        │ tools/json-compare     │ (future tools) │
+│ tools/json                                        │ (future tools) │
 ├──────────────────────────┴─────────────────────────────────────────┤
 │  core/: formats · editor · json-view · diff · worker · io          │
 └────────────────────────────────────────────────────────────────────┘
@@ -88,8 +88,7 @@ qa-toolbox/
 │  ├─ tools/
 │  │  ├─ types.ts          ToolDefinition
 │  │  ├─ registry.ts       the single list of tools
-│  │  ├─ json-editor/      index.ts · JsonEditorTool.tsx · logic.ts · status.worker.ts · *.test.ts
-│  │  └─ json-compare/     index.ts · JsonCompareTool.tsx · logic.ts · compare.worker.ts · *.test.ts
+│  │  └─ json/             index.ts · JsonTool.tsx · logic.ts · workers · *.test.ts
 │  └─ main.tsx
 ├─ e2e/                    Playwright specs (registry smoke, no-egress, perf, container)
 ├─ fixtures/               small committed test data; large files generated at test time
@@ -165,28 +164,12 @@ v1 ships only the JSON adapter (`parse` with 1-based line/column, `stringify` wi
 - Sidebar grouped by category, generated from the registry.
 - Header: app name, theme toggle (light / dark / system; stored in `localStorage` — UI preference, never user data).
 - `<ToolErrorBoundary>` per tool: crash → "This tool crashed" + Reload + copyable details; shell stays alive.
-- Default route redirects to `/#/tools/json-editor`; unknown tool id → "Tool not found" with link home.
+- Default route redirects to `/#/tools/json`; unknown tool id → "Tool not found" with link home.
 
 ## 4. v1 tools
 
-### 4.1 JSON Editor (`/#/tools/json-editor`)
-| Feature | Implementation |
-|---|---|
-| Text / Tree / Table views | `vanilla-jsoneditor` modes via `<JsonEditorView>` |
-| Format (2 / 4 / tab), Minify, Sort keys | `formats/json.stringify` options; pure functions in `logic.ts` |
-| Repair | `jsonrepair`; toolbar button + inline "Repair?" on parse failure |
-| Query & transform | Built-in transform modal, query languages limited to **JSONQuery, JMESPath, JSONPath** |
-| Schema validation | Collapsible side panel (`<CodeEditor>`) for the schema; validator built on **`@cfworker/json-schema`** and passed to the editor; errors shown inline |
-| Input / output | Paste, drag-drop file, file picker (read-only), copy, download `.json` |
-| Status bar | Valid / invalid (line:col), size, node count; neutral "Empty" state for blank input; computed in a Web Worker above 1M chars |
-
-### 4.2 JSON Compare (`/#/tools/json-compare`)
-- Two editable panes (`<CodeEditor language="json">`); swap; drop/pick a file into either side.
-- **Text diff**: both sides normalized (format + sort keys when "Ignore key order" is on — default **on**) → `<TextDiffView>` with next/prev change navigation.
-- **Structural diff** (default tab): `structuralDiff()` → flat change list by JSONPath (`$.users[2].email`: `"a"` → `"b"`), with added/removed/changed/moved counts; arrays of objects with `id` show reorders as moves; click a change to jump to it in the text diff.
-- Summary distinguishes **"No differences"** from **"Same data — key order or number notation differs"** (e.g. `1.0` vs `1`).
-- Normalization + diff run in a Web Worker via `runInWorker` when combined input > 1,000,000 chars.
-- Either side empty → "Paste JSON on both sides to compare". Either side invalid → that pane shows the parse error; summary shows "Fix the JSON errors to compare".
+### 4.1 JSON (`/#/tools/json`)
+One tool replaces the original JSON Editor and JSON Compare: two editors side by side, in-place compare with a Changes drawer, a resizable split, and a floating command palette (⌘K / Ctrl+K). The full design (layout, compare rules, highlights, shortcuts, constraints) is in [`docs/superpowers/specs/2026-11-08-json-tool-design.md`](docs/superpowers/specs/2026-11-08-json-tool-design.md); code in `src/tools/json/`, palette in `src/core/commands/`.
 
 ### 4.3 Data flow (all tools)
 ```
@@ -277,13 +260,16 @@ SemVer + Conventional Commits.
 ## 9. Roadmap (each milestone gets its own plan)
 | Version | Scope | Notes |
 |---|---|---|
-| **v1** | JSON Editor + JSON Compare | This design / `plan.md` |
-| v1.1 | Text tools: text diff, regex tester, case convert, sort/dedupe lines; **command palette** | Text diff reuses `<TextDiffView>` |
+| **v1** | **JSON** tool (two editors, in-place compare, Changes drawer, resizable split) + floating **command palette** (⌘K / Ctrl+K) | `plan.md`, then `docs/superpowers/specs/2026-11-08-json-tool-design.md` (replaces JSON Editor + JSON Compare) |
+| v1.1 | Text tools: pure **text diff** (line-by-line, any text), regex tester, case convert, sort/dedupe lines | Text diff reuses `<TextDiffView>` and `core/diff/focus.ts`, kept in `core/` for this |
 | v1.2 | QA helpers: JSON Schema → test data, cURL ↔ JSON, API response compare | Builds on Compare + schema validation |
 | v1.3 | Encoders: Base64, URL, JWT decode, hashes, UUID, timestamps | |
 | v1.4 | Persistence: in-app tabs, IndexedDB, File System Access open/save | `{format, text}` documents are the extension point; `localhost` is a secure context so FS Access works from Docker |
 | v1.5 | XML (+ CSV) adapters + **Convert tool** | First milestone with a second format |
 | v1.6 | YAML (+ TOML) adapters | Plug into Convert / Editor / Compare via the adapter layer |
+| Backlog | **JSON with comments**: `//` to end of line; `/* … */` (incl. `/** */`), first `*/` ends it, no nesting; markers inside strings are text; ignored by validation and compare; removed by Format / Minify / Sort keys | Choose own scanner vs Microsoft `jsonc-parser` then; main risk: comment markers inside strings |
+| Backlog | **JSON generator (fake data)**: generate realistic sample JSON — names, emails, dates, numbers, ids, arrays of N items — from a template or field list, fully offline | To be designed before it is scheduled; related to v1.2 "JSON Schema → test data" (could share the value generators) |
+| Backlog | **Keyboard-shortcut conflicts**: Ctrl+Alt+↓/↑ (next/previous change) overrides the editor's add-cursor below/above on Windows/Linux and is taken by Ubuntu desktops for workspace switching | Open idea, not decided: a version run from the terminal, which might let the app own its key bindings and avoid these conflicts. To be thought through before it is scheduled. |
 
 ## 10. Risks
 | Risk | Mitigation |

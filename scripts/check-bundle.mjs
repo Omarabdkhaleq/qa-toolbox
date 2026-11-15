@@ -8,8 +8,7 @@ const ENTRY_BUDGET = 150 * KB;
 const ROUTE_BUDGET = 600 * KB;
 /** Tool source paths whose lazy route is budgeted. Missing keys are skipped (tool not built yet). */
 const ROUTE_BUDGETS = {
-  'src/tools/json-editor/JsonEditorTool.tsx': ROUTE_BUDGET,
-  'src/tools/json-compare/JsonCompareTool.tsx': ROUTE_BUDGET,
+  'src/tools/json/JsonTool.tsx': ROUTE_BUDGET,
 };
 const SINGLE_COPY = ['@codemirror/state', '@codemirror/view'];
 

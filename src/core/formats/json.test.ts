@@ -1,6 +1,14 @@
 import { isLosslessNumber } from 'lossless-json';
 import { describe, expect, it, vi } from 'vitest';
-import { countNodes, jsonAdapter, repairJson, sortKeysDeep, toPlainValue } from './json';
+import {
+  COMMENT_ERROR,
+  countNodes,
+  jsonAdapter,
+  losslessJsonParser,
+  repairJson,
+  sortKeysDeep,
+  toPlainValue,
+} from './json';
 
 const parseValue = (text: string) => {
   const r = jsonAdapter.parse(text);
@@ -133,5 +141,39 @@ describe('toPlainValue', () => {
     const v = parseValue('[1.5, 12345678901234567890, 1e400]');
     expect(toPlainValue(v)).toEqual([1.5, 12345678901234567890n, '1e400']);
     expect(toPlainValue(v, 'approximate')).toEqual([1.5, Number('12345678901234567890'), Infinity]);
+  });
+});
+
+describe('comments', () => {
+  it('explains a trailing line comment', () => {
+    const r = jsonAdapter.parse('{\n  "a": 1 // c\n}');
+    expect(r).toEqual({ ok: false, error: { message: COMMENT_ERROR, line: 2, column: 10 } });
+  });
+
+  it('explains a leading block comment', () => {
+    const r = jsonAdapter.parse('/* x */ {}');
+    expect(r).toEqual({ ok: false, error: { message: COMMENT_ERROR, line: 1, column: 1 } });
+  });
+
+  it('does not treat // inside a string as a comment', () => {
+    expect(jsonAdapter.parse('{"u":"http://x"}').ok).toBe(true);
+  });
+
+  it('keeps the existing message for other errors', () => {
+    const r = jsonAdapter.parse('{"a": }');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).not.toContain("Comments aren't supported");
+  });
+
+  it('makes the library parser throw the comment message with a position', () => {
+    expect(() => losslessJsonParser.parse('{"a":1 // c}')).toThrow(
+      `${COMMENT_ERROR} at position 7`,
+    );
+  });
+
+  it('repairs comments away', () => {
+    const r = repairJson('{"u":"http://x", // c\n"a":1}');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(JSON.parse(r.text)).toEqual({ u: 'http://x', a: 1 });
   });
 });

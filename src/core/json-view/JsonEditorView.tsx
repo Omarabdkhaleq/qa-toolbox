@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import {
   createJSONEditor,
   isTextContent,
@@ -10,17 +10,25 @@ import {
 } from 'vanilla-jsoneditor';
 import { EditorView } from '@codemirror/view';
 import 'vanilla-jsoneditor/themes/jse-theme-dark.css';
+import { toJsonPointer, type PathSegment } from '../diff/paths';
 import { losslessJsonParser } from '../formats/json';
 import { useIsDarkTheme } from '../theme/useIsDarkTheme';
+import { classForPath, lineSpanOfPointer, type PathHighlights } from './highlights';
 import './json-view.css';
 import { QUERY_LANGUAGES } from './queryLanguages';
 import type { JsonValidator } from './schemaValidator';
+import { applyTextHighlights } from './textHighlights';
+import { applyFoldCounts } from './foldCounts';
 
 export type JsonEditorMode = 'text' | 'tree' | 'table';
 
 export interface JsonEditorViewHandle {
   /** The live document text, including edits the editor has not reported through onChange yet. */
   getText: () => string;
+  /** Scrolls the node (tree/table) or line (text) at `path` into view. */
+  scrollToPath: (path: readonly PathSegment[]) => Promise<void>;
+  /** Moves keyboard focus into the editor. */
+  focus: () => void;
 }
 
 export interface JsonEditorViewProps {
@@ -30,6 +38,19 @@ export interface JsonEditorViewProps {
   mode?: JsonEditorMode;
   onModeChange?: (mode: JsonEditorMode) => void;
   validator?: JsonValidator;
+  /** Compare highlights by JSON pointer; painted in text and tree views. */
+  highlights?: PathHighlights;
+  /** The change being stepped through; gets an extra focus outline. */
+  focusPath?: readonly PathSegment[] | null;
+  testId?: string;
+  /** Shows a note above the editor while it is in table mode (table view cannot paint highlights). */
+  showTableNote?: boolean;
+  /** Focus moved into the editor. */
+  onFocus?: () => void;
+  /** Focus left the editor; any pending onChange has been flushed before this is called. */
+  onBlur?: () => void;
+  /** Text pasted into the editor (reported when the paste event bubbles up). */
+  onPaste?: (text: string) => void;
 }
 
 const MODES: Record<JsonEditorMode, Mode> = { text: Mode.text, tree: Mode.tree, table: Mode.table };
@@ -47,13 +68,43 @@ export function JsonEditorView({
   mode = 'text',
   onModeChange,
   validator,
+  highlights,
+  focusPath = null,
+  testId = 'json-editor-view',
+  showTableNote = false,
+  onFocus,
+  onBlur,
+  onPaste,
 }: JsonEditorViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<ReturnType<typeof createJSONEditor> | null>(null);
   const lastText = useRef(value);
   const modeRef = useRef(mode);
-  const callbacks = useRef({ onChange, onModeChange });
+  const callbacks = useRef({ onChange, onModeChange, onFocus, onBlur });
   const dark = useIsDarkTheme();
+  const [currentMode, setCurrentMode] = useState<JsonEditorMode>(mode);
+  const hl = useRef({ highlights, focusPath });
+  const appliedViews = useRef(new WeakSet<EditorView>());
+
+  const textView = useCallback((): EditorView | null => {
+    if (modeRef.current !== 'text') return null;
+    const cm = hostRef.current?.querySelector<HTMLElement>('.cm-editor');
+    return cm ? EditorView.findFromDOM(cm) : null;
+  }, []);
+
+  const classNameFor = useCallback((path: readonly PathSegment[]) => {
+    const { highlights: h, focusPath: f } = hl.current;
+    const cls = h ? classForPath(path, h) : undefined;
+    const focused = f && toJsonPointer(f) === toJsonPointer(path);
+    return focused ? `${cls ?? ''} jt-focus`.trim() : cls;
+  }, []);
+
+  const paintText = useCallback((view: EditorView) => {
+    applyFoldCounts(view);
+    const { highlights: h, focusPath: f } = hl.current;
+    applyTextHighlights(view, { highlights: h, focusPointer: f ? toJsonPointer(f) : null });
+    appliedViews.current.add(view);
+  }, []);
 
   useImperativeHandle(ref, () => ({
     getText: () => {
@@ -68,10 +119,23 @@ export function JsonEditorView({
       const editor = editorRef.current;
       return editor ? contentToText(editor.get()) : lastText.current;
     },
+    scrollToPath: async (path) => {
+      const view = textView();
+      if (view) {
+        const span = lineSpanOfPointer(view.state.doc.toString(), toJsonPointer(path));
+        if (span) {
+          const pos = view.state.doc.line(Math.min(span.fromLine, view.state.doc.lines)).from;
+          view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: 'center' }) });
+        }
+        return;
+      }
+      await editorRef.current?.scrollTo(path.map(String));
+    },
+    focus: () => editorRef.current?.focus(),
   }));
 
   useEffect(() => {
-    callbacks.current = { onChange, onModeChange };
+    callbacks.current = { onChange, onModeChange, onFocus, onBlur };
   });
 
   useEffect(() => {
@@ -90,14 +154,59 @@ export function JsonEditorView({
         lastText.current = text;
         callbacks.current.onChange(text);
       },
+      onClassName: classNameFor,
+      onFocus: () => callbacks.current.onFocus?.(),
+      onBlur: () => callbacks.current.onBlur?.(),
       onChangeMode: (next) => {
         modeRef.current = next as JsonEditorMode;
+        setCurrentMode(next as JsonEditorMode);
         callbacks.current.onModeChange?.(next as JsonEditorMode);
       },
     };
     const editor = createJSONEditor({ target, props });
     editorRef.current = editor;
+    // A mode switch back to text builds a new CodeMirror view; re-attach the decorations to it.
+    // The library can also replace a view's state on outside content changes, dropping the
+    // fold-count extension; applyFoldCounts is a cheap no-op when the current state has it.
+    const observer = new MutationObserver(() => {
+      const view = textView();
+      if (!view) return;
+      if (!appliedViews.current.has(view)) paintText(view);
+      else applyFoldCounts(view);
+    });
+    observer.observe(target, { childList: true, subtree: true });
+    // vanilla-jsoneditor reports text-mode edits on a delay and flushes a pending edit when the
+    // text editor loses focus. If that flush lands in the same gesture as a mode switch (pressing a
+    // mode button moves focus at mousedown, then the click switches), the library gets stuck: no
+    // further mode switch works. So in text mode: keep focus where it is on mousedown, and on click
+    // flush the pending edit first (blur), then replay the click on the next tick.
+    const modeButton = (event: Event) =>
+      modeRef.current === 'text'
+        ? (event.target as Element | null)?.closest?.<HTMLElement>('.jse-group-button')
+        : null;
+    let replaying = false;
+    const keepFocusOnMouseDown = (event: MouseEvent) => {
+      if (modeButton(event)) event.preventDefault();
+    };
+    const flushThenSwitch = (event: MouseEvent) => {
+      const button = replaying ? null : modeButton(event);
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.closest('.cm-editor')) active.blur();
+      setTimeout(() => {
+        replaying = true;
+        button.click();
+        replaying = false;
+      });
+    };
+    target.addEventListener('mousedown', keepFocusOnMouseDown, true);
+    target.addEventListener('click', flushThenSwitch, true);
     return () => {
+      target.removeEventListener('mousedown', keepFocusOnMouseDown, true);
+      target.removeEventListener('click', flushThenSwitch, true);
+      observer.disconnect();
       editorRef.current = null;
       void editor.destroy().then(() => target.remove());
     };
@@ -113,8 +222,18 @@ export function JsonEditorView({
 
   useEffect(() => {
     modeRef.current = mode;
+    setCurrentMode(mode);
     editorRef.current?.updateProps({ mode: MODES[mode] });
   }, [mode]);
+
+  // Repaint on highlight/focus/text changes: tree via a fresh onClassName identity, text via decorations.
+  useEffect(() => {
+    hl.current = { highlights, focusPath };
+    // A new function identity makes the tree re-evaluate every node's class.
+    editorRef.current?.updateProps({ onClassName: (path) => classNameFor(path) });
+    const view = textView();
+    if (view) paintText(view);
+  }, [highlights, focusPath, textView, paintText, classNameFor]);
 
   useEffect(() => {
     editorRef.current?.updateProps({ validator });
@@ -122,9 +241,19 @@ export function JsonEditorView({
 
   return (
     <div
-      ref={hostRef}
-      className={`json-editor-view${dark ? ' jse-theme-dark' : ''}`}
-      data-testid="json-editor-view"
-    />
+      className="json-editor-view-wrap"
+      onPaste={onPaste && ((e) => onPaste(e.clipboardData.getData('text/plain')))}
+    >
+      {showTableNote && currentMode === 'table' ? (
+        <p className="json-editor-view__note" role="note">
+          Differences are highlighted in text and tree views
+        </p>
+      ) : null}
+      <div
+        ref={hostRef}
+        className={`json-editor-view${dark ? ' jse-theme-dark' : ''}`}
+        data-testid={testId}
+      />
+    </div>
   );
 }
