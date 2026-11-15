@@ -39,7 +39,7 @@ Node 24 (`.nvmrc`). TypeScript is pinned to ~6.0 because typescript-eslint doesn
 
 - No runtime network access: no CDN assets, remote fonts, analytics or telemetry. `e2e/no-egress.spec.ts` exercises every tool (via `e2e/support/exercise.ts`) and fails on any non-origin request.
 - Strict CSP without `unsafe-eval`. Never add `eval`/`new Function`, the JavaScript or Lodash query languages, or Ajv (ADR 0001 chose `@cfworker/json-schema`). The CSP lives in **both** `docker/security-headers.conf` (nginx) and `build/csp.ts` (Pages `<meta>` build, `QA_TOOLBOX_TARGET=pages`); `build/csp.test.ts` fails if they drift.
-- Budgets: entry ≤ 150 KB gzip, each tool route ≤ 600 KB gzip (`scripts/check-bundle.mjs`, keyed by tool source path), exactly one installed copy of `@codemirror/state`/`@codemirror/view` (Vite `resolve.dedupe`), 20 MB open < 3 s, 5 MB compare < 3 s.
+- Budgets: entry ≤ 150 KB gzip, each tool route ≤ 600 KB gzip (`scripts/check-bundle.mjs`, keyed by tool source path), exactly one installed copy of `@codemirror/state`/`@codemirror/view` (Vite `resolve.dedupe`), 20 MB open < 3 s, 5 MB compare < 6 s (max frame gap < 2 s).
 - The runtime image runs `apk upgrade` because the Trivy scan in CI fails on fixable HIGH/CRITICAL OS packages; base images and GitHub Actions are pinned by digest/SHA.
 
 ## Testing gotchas

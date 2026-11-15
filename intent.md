@@ -201,7 +201,7 @@ No error is ever transmitted anywhere. Details are logged to the console only.
 | Initial JS (shell, no tool) | ≤ 150 KB gzip | `scripts/check-bundle.mjs` (Vite manifest) |
 | Each tool route (lazy chunk + its imports not in the entry) | ≤ 600 KB gzip | `scripts/check-bundle.mjs` |
 | Open 20 MB JSON (text mode) | < 3 s | Playwright perf spec (Chromium) |
-| Compare two 5 MB docs | < 3 s, UI responsive (max frame gap < 1 s) | Playwright perf spec (Chromium) |
+| Compare two 5 MB docs | < 6 s, UI responsive (max frame gap < 2 s) — raised from 3 s / 1 s on 2026-11-15 | Playwright perf spec (Chromium) |
 | Installed copies of `@codemirror/state` / `@codemirror/view` | exactly 1 | Vite `resolve.dedupe` + `npm ls` in `check-bundle.mjs` |
 
 Perf specs use generous margins to avoid CI flakiness; they catch large regressions only. Tree-view performance on huge documents is delegated to the library (virtualized); the 20 MB budget is for text mode.

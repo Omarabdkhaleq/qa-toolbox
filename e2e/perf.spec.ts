@@ -68,8 +68,10 @@ test('compares two 5 MB documents within budget and keeps the UI responsive', as
   );
 
   console.log(
-    `5 MB compare: ${elapsed} ms (budget ${budget(3000)} ms), max frame gap ${Math.round(maxGap)} ms`,
+    `5 MB compare: ${elapsed} ms (budget ${budget(6000)} ms), max frame gap ${Math.round(maxGap)} ms`,
   );
-  expect(elapsed).toBeLessThan(budget(3000));
-  expect(maxGap).toBeLessThan(budget(1000));
+  // Raised from 3 s / 1 s (user decision, 2026-11-15): the JSON tool's compare now sorts and
+  // re-indents both sides in full editors; large-file speed is not a priority yet.
+  expect(elapsed).toBeLessThan(budget(6000));
+  expect(maxGap).toBeLessThan(budget(2000));
 });
